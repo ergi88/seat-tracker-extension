@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Seat Tracker",
-  "version": "7.4.0",
+  "version": "7.5.0",
   "description": "Read-only seat availability tracker for eBileta, eFinity and Posttick: client requests, blocks of adjacent seats, desktop and phone alerts.",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "unlimitedStorage", "alarms", "notifications"],
