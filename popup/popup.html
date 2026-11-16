@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seat Tracker</title>
+<link rel="stylesheet" href="../ui/app.css">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body class="sk-app popup">
+
+<header class="bar">
+  <img class="logo" src="../icons/32.png" alt="">
+  <div class="titles">
+    <h1>Seat Tracker</h1>
+    <div class="sub" id="sub">loading…</div>
+  </div>
+  <button id="muteBtn" type="button" class="ghost icon" title="Mute alerts" hidden>🔔</button>
+  <button id="scanBtn" type="button" class="primary" title="Scan the sectors with your open requests, in every event" hidden>Scan tracked</button>
+  <input id="search" class="search" type="search" placeholder="Search sector or listing ID" aria-label="Search requests by sector or listing ID" autocomplete="off" spellcheck="false" hidden>
+</header>
+<div id="muteMenu" class="mute-menu" hidden></div>
+<div id="statusbar" class="statusbar" hidden></div>
+<div id="updateBar" class="update-bar" hidden></div>
+
+<section id="login" class="login" hidden></section>
+
+<main id="main" hidden>
+  <div id="viewswitch" class="viewswitch"></div>
+  <div id="listings"></div>
+  <div id="events"></div>
+
+  <details class="section" id="addBox" open>
+    <summary>Add a request</summary>
+    <div id="addForm"></div>
+  </details>
+
+  <details class="section" id="lastSalesBox">
+    <summary>viagogo last sales <span class="sum-note" id="lastSalesSum"></span></summary>
+    <div id="lastSales"></div>
+  </details>
+
+  <details class="section" id="teamBox">
+    <summary>Team</summary>
+    <div id="team"></div>
+  </details>
+
+  <details class="section" id="updateBox">
+    <summary>Updates <span class="sum-note" id="updateSum"></span></summary>
+    <div id="update"></div>
+  </details>
+
+  <details class="section" id="settingsBox">
+    <summary>Settings</summary>
+    <div id="settings"></div>
+  </details>
+
+  <details class="section" id="phoneBox">
+    <summary>Phone</summary>
+    <div id="phone"></div>
+  </details>
+
+  <details class="section" id="backupBox">
+    <summary>Backup</summary>
+    <div id="backup"></div>
+  </details>
+</main>
+
+<script src="../core/util.js"></script>
+<script src="../core/rules.js"></script>
+<script src="../core/registry.js"></script>
+<script src="../core/settings.js"></script>
+<script src="../core/profit.js"></script>
+<script src="../core/help.js"></script>
+<script src="../core/viagogo.js"></script>
+<script src="../core/lastsales.js"></script>
+<script src="../core/team.js"></script>
+<script src="../core/update.js"></script>
+<script src="../ui/components.js"></script>
+<script src="../ui/lastsalewatch.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seat Tracker guide</title>
+<link rel="stylesheet" href="../ui/app.css">
+<style>
+  body.guide { margin: 0; min-height: 100vh; }
+  .guide .wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px 60px; }
+  .guide header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .guide header img { width: 36px; height: 36px; border-radius: 8px; }
+  .guide h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .guide header p { margin: 2px 0 0; color: var(--muted); }
+  .guide nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .guide nav a { font-size: 12px; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; text-decoration: none; }
+  .guide section { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 0 0 14px; scroll-margin-top: 16px; }
+  .guide section:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .guide h2 { margin: 0 0 4px; font-size: 16px; }
+  .guide .intro { color: var(--muted); margin: 0 0 8px; }
+  .guide .help-item { padding: 9px 0; }
+  .guide .help-name { font-size: 13px; }
+  .guide .help-text { font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body class="sk-app guide">
+  <div class="wrap">
+    <header>
+      <img src="../icons/48.png" alt="">
+      <div>
+        <h1>Seat Tracker guide</h1>
+        <p>What every part and every setting does. NOTIFICATIONS.md and COMMANDS.md in the extension folder go deeper.</p>
+      </div>
+    </header>
+    <nav id="toc"></nav>
+    <main id="content"></main>
+  </div>
+  <script src="../core/util.js"></script>
+  <script src="../core/help.js"></script>
+  <script src="help.js"></script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+/* ------------------------------------------------------------------
+ * Seat Tracker - what lives in the site's own page (badges, outlines,
+ * push mode). Every selector is namespaced sk-; the sidebar itself is in
+ * a shadow root and styled by ui/app.css + content/sidebar.css.
+ * ------------------------------------------------------------------ */
+
+html.sk-push { margin-right: var(--sk-push-w, 360px) !important; transition: margin-right .18s ease; }
+html.sk-push-left { margin-left: var(--sk-push-w, 360px) !important; transition: margin-left .18s ease; }
+
+:root {
+  --sk-b-bg: #ffffff; --sk-b-ink: #16181d; --sk-b-line: #d8dce3; --sk-b-muted: #6b7280;
+  --sk-ok: #1a9e57; --sk-low: #e08a25; --sk-bad: #d93b30; --sk-none: #9aa1ad; --sk-accent: #1f5fd6; --sk-bought: #7c3aed;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-sk-theme="light"]) { --sk-b-bg: #1c1f26; --sk-b-ink: #e8eaf0; --sk-b-line: #363c47; --sk-b-muted: #98a1b0; --sk-accent: #5b93f5; }
+}
+html[data-sk-theme="dark"] { --sk-b-bg: #1c1f26; --sk-b-ink: #e8eaf0; --sk-b-line: #363c47; --sk-b-muted: #98a1b0; --sk-accent: #5b93f5; }
+
+/* ---------------- floating badges (eFinity) ----------------------- */
+
+.sk-layer { position: fixed; inset: 0; pointer-events: none; z-index: 2147482000; }
+.sk-layer .sk-badge { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; }
+
+.sk-badge {
+  all: unset; box-sizing: border-box;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 999px;
+  font: 600 11px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--sk-b-ink); background: var(--sk-b-bg);
+  border: 2px solid var(--sk-none);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+  cursor: pointer; white-space: nowrap;
+}
+.sk-badge.st-OK { border-color: var(--sk-ok); }
+.sk-badge.st-LOW { border-color: var(--sk-low); }
+.sk-badge.st-SPLIT, .sk-badge.st-SHORT { border-color: var(--sk-bad); }
+.sk-badge.st-BOUGHT { border-color: var(--sk-bought); }
+.sk-badge.sel { outline: 2px solid var(--sk-accent); outline-offset: 1px; }
+/* a stadium read without tracking it: colored by price group */
+.sk-badge.tier { border-color: var(--sk-tier); }
+.sk-badge.tier .sk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sk-tier); }
+
+.sk-outline {
+  position: absolute; pointer-events: none; border-radius: 3px;
+  border: 2px solid #facc15; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 0 10px rgba(250, 204, 21, .6);
+}
+
+/* ---------------- badge strip (Posttick) -------------------------- */
+
+.sk-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.sk-strip .sk-badge { border-width: 1px; border-color: var(--sk-b-line); box-shadow: none; font-weight: 500; font-size: 12px; padding: 3px 10px; }
+.sk-strip .sk-badge:hover, .sk-strip .sk-badge.sel { border-color: var(--sk-accent); outline: 0; }
+.sk-strip .sk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sk-none); }
+.sk-strip .st-OK .sk-dot { background: var(--sk-ok); }
+.sk-strip .st-LOW .sk-dot { background: var(--sk-low); }
+.sk-strip .st-SPLIT .sk-dot, .sk-strip .st-SHORT .sk-dot { background: var(--sk-bad); }
+.sk-strip .st-BOUGHT .sk-dot { background: var(--sk-bought); }
+.sk-strip .sk-name { font-weight: 600; }
+.sk-strip .sk-qty { color: var(--sk-b-muted); font-variant-numeric: tabular-nums; }
+
+/* ---------------- eBileta sector-list pills ----------------------- */
+
+li.link_settore { position: relative; }
+.sk-eb-badge {
+  position: absolute; top: 4px; right: 4px; z-index: 30;
+  display: inline-flex; align-items: stretch; overflow: hidden;
+  border-radius: 999px; box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  font: 700 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #6b7280; color: #fff; opacity: .35; transition: opacity .12s ease; user-select: none;
+}
+li.link_settore:hover .sk-eb-badge, .sk-eb-badge.has { opacity: 1; }
+.sk-eb-badge button {
+  all: unset; cursor: pointer; padding: 4px 7px; color: #fff; font-weight: 700; font-size: 13px;
+  background: rgba(0, 0, 0, .16);
+}
+.sk-eb-badge button:hover { background: rgba(0, 0, 0, .36); }
+.sk-eb-badge .sk-open { background: transparent; padding: 4px 8px; font-size: 12px; }
+.sk-eb-badge .sk-open:hover { background: rgba(255, 255, 255, .16); text-decoration: underline; }
+.sk-eb-badge .sk-free { font-weight: 500; opacity: .85; }
+.sk-eb-badge.st-OK { background: #16a34a; }
+.sk-eb-badge.st-LOW { background: #d97706; }
+.sk-eb-badge.st-SPLIT, .sk-eb-badge.st-SHORT { background: #dc2626; }
+.sk-eb-badge.st-BOUGHT { background: #7c3aed; }
+
+/* ---------------- eBileta free seats per sector -------------------- */
+
+.sk-eb-free {
+  margin: 10px 0 14px; padding: 8px 10px; border-radius: 10px;
+  background: #111827; color: #e5e7eb;
+  font: 500 13px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sk-eb-free-head { margin-bottom: 7px; font-size: 12px; font-weight: 600; color: #cbd5e1; }
+.sk-eb-free-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-eb-free-chip {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; border-radius: 999px; border: 1.5px solid transparent;
+  background: #374151; color: #fff;
+  font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sk-eb-free-chip:hover { border-color: rgba(255, 255, 255, .7); }
+.sk-eb-free-chip b { font-weight: 800; letter-spacing: .01em; }
+.sk-eb-free-chip span { font-weight: 700; }
+.sk-eb-free-chip.is-free { background: #15803d; }
+.sk-eb-free-chip.is-empty { background: #b91c1c; }
+.sk-eb-free-chip.is-nomap { background: #4b5563; }
+.sk-eb-free-chip.is-nomap span, .sk-eb-free-chip.is-none span { font-weight: 500; opacity: .8; }
+.sk-eb-free-chip.mine { box-shadow: 0 0 0 2px #facc15 inset; }
+/* a sector eBileta has removed from the page, kept by the extension */
+.sk-eb-free-chip.is-gone { border-style: dashed; border-color: rgba(255, 255, 255, .45); }
+.sk-eb-free-chip .sk-eb-tier { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* the price groups above the strip */
+.sk-eb-prices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.sk-eb-price-chip {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, .25);
+  color: #e5e7eb; font: 600 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sk-eb-price-chip:hover { border-color: rgba(255, 255, 255, .7); }
+.sk-eb-price-chip:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+.sk-eb-price-chip.on { background: #f9fafb; border-color: #f9fafb; color: #111827; }
+.sk-eb-price-chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.sk-eb-price-chip span { font-weight: 500; opacity: .7; }
+
+/* a removed sector's outline, put back where eBileta took its polygon away */
+svg polygon.sk-eb-ghost {
+  fill: rgba(107, 114, 128, .18); stroke: #6b7280; stroke-width: 2px; stroke-dasharray: 6 4;
+  cursor: default; pointer-events: all;
+}
+.sk-eb-map-badge.is-gone { border-style: dashed; cursor: default; }
+
+/* a price group picked: its sectors outlined, the rest faded */
+svg polygon.sk-eb-dim { opacity: .2; }
+svg polygon.sk-eb-pick { stroke: var(--sk-tier); stroke-width: 3px; }
+
+/* the sectors eBileta has removed, under its own sector list */
+.sk-eb-gone {
+  margin: 10px 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed #9ca3af;
+  font: 500 13px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #374151;
+}
+.sk-eb-gone-head { margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #6b7280; }
+.sk-eb-gone-item {
+  position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  padding: 6px 112px 6px 0; border-top: 1px solid #e5e7eb;
+}
+.sk-eb-gone-item:first-of-type { border-top: 0; }
+.sk-eb-gone-item span { font-size: 12px; color: #6b7280; }
+.sk-eb-gone-item .sk-eb-badge { opacity: 1; }
+
+/* ---------------- eBileta stadium-map badges ---------------------- */
+
+.sk-eb-map-layer { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
+.sk-eb-map-badge {
+  all: unset; box-sizing: border-box;
+  position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 3px; max-width: 128px;
+  min-width: 18px; padding: 2px 6px; border-radius: 999px; text-align: center;
+  border: 1.5px solid rgba(255, 255, 255, .9); color: #fff; background: #6b7280;
+  font: 700 9px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .5);
+}
+.sk-eb-map-badge .sk-eb-map-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .01em; }
+.sk-eb-map-badge .sk-eb-map-sep { opacity: .65; font-weight: 400; }
+.sk-eb-map-badge .sk-eb-map-qty { font-weight: 800; font-size: 10px; flex: none; }
+.sk-eb-map-badge.st-OK { background: #16a34a; }
+.sk-eb-map-badge.st-LOW { background: #d97706; }
+.sk-eb-map-badge.st-SPLIT, .sk-eb-map-badge.st-SHORT { background: #dc2626; }
+.sk-eb-map-badge.st-BOUGHT { background: #7c3aed; }
+/* wanted / free: the free seats a little quieter than the tickets wanted */
+.sk-eb-map-badge .sk-eb-map-free { margin-left: -2px; font-weight: 600; font-size: 9.5px; opacity: .85; flex: none; }
+.sk-eb-map-badge.both.is-empty, .sk-eb-map-badge.both.is-spare { transform: translate(-50%, -50%); }
+
+/* the switch in the map's corner */
+.sk-eb-map-toggle {
+  all: unset; box-sizing: border-box; position: absolute; left: 8px; top: 8px; pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 5px; border-radius: 999px;
+  background: rgba(17, 24, 39, .88); color: #e5e7eb; box-shadow: 0 1px 5px rgba(0, 0, 0, .35);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sk-eb-map-toggle:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+.sk-eb-switch { position: relative; width: 22px; height: 12px; border-radius: 999px; background: #4b5563; transition: background .15s; }
+.sk-eb-switch::after {
+  content: ""; position: absolute; left: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #fff; transition: transform .15s;
+}
+.sk-eb-map-toggle.on .sk-eb-switch { background: #16a34a; }
+.sk-eb-map-toggle.on .sk-eb-switch::after { transform: translateX(10px); }
+
+/* ---------------- eBileta seat-page highlight --------------------- */
+
+svg .sk-hl { stroke: #facc15; stroke-width: 2.5; fill: none; pointer-events: none; }
+
+/* the badge on every row of eBileta's event list */
+.sk-eb-evbadge {
+  display: inline-block; margin-left: 8px; vertical-align: middle;
+  font: 600 11px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: 1px 7px; border-radius: 999px; cursor: pointer;
+  border: 1px solid #c7ccd4; background: #eef0f3; color: #6b7280;
+}
+.sk-eb-evbadge.untracked { opacity: .75; }
+.sk-eb-evbadge.st-OK { border-color: #1a9e57; background: #e3f5ec; color: #12875a; }
+.sk-eb-evbadge.st-LOW { border-color: #e08a25; background: #fdf0e0; color: #b4620c; }
+.sk-eb-evbadge.st-SPLIT, .sk-eb-evbadge.st-SHORT { border-color: #d93b30; background: #fceceb; color: #b3261e; }
+.sk-eb-evbadge.st-BOUGHT { border-color: #7c3aed; background: #f1ebfd; color: #6d28d9; }
+
+/* a sector a scan found empty: present, but quiet next to the ones you want */
+.sk-eb-map-badge.is-empty {
+  background: #eef0f3; color: #6b7280; border: 1px solid #c7ccd4;
+  transform: translate(-50%, -50%) scale(.85);
+  font-weight: 600;
+}
+.sk-eb-legend {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  margin: 8px 0 2px; font: 11px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #6b7280;
+}
+.sk-eb-key {
+  display: inline-block; margin-right: 6px; font-style: normal;
+  font: 700 9.5px/1.4 system-ui, sans-serif; padding: 1px 5px; border-radius: 4px;
+  background: #eef0f3; color: #6b7280; border: 1px solid #c7ccd4;
+}
+.sk-eb-key.st-OK { background: #1a9e57; border-color: #1a9e57; color: #fff; }
+.sk-eb-key.st-BOUGHT { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.sk-eb-key.is-none { background: transparent; border-style: dashed; }
+.sk-eb-free-chip.is-soldout { opacity: .55; }
+.sk-eb-free-chip.is-soldout span { color: #b3261e; }
+
+/* read, has seats, but nobody has asked for any: worth seeing, not urgent */
+.sk-eb-map-badge.is-spare {
+  background: #1f5fd6; color: #fff; border: 1px solid #1f5fd6;
+  transform: translate(-50%, -50%) scale(.9);
+}
+.sk-eb-key.is-spare { background: #1f5fd6; border-color: #1f5fd6; color: #fff; }
+
+/* the tooltip over a map sector: seats free, and your requests' options */
+.sk-eb-map-tip {
+  position: absolute; z-index: 2; pointer-events: none; max-width: 260px;
+  padding: 7px 10px; border-radius: 8px; background: rgba(17, 24, 39, .95); color: #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+  font: 500 12px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sk-eb-map-tip[hidden] { display: none; }
+.sk-eb-map-tip b { color: #fff; font-weight: 700; }
+.sk-eb-map-tip .m { color: #9ca3af; }
+.sk-eb-map-tip .sk-tip-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 2px; font-size: 12.5px; }
+.sk-eb-map-tip .sk-tip-head .m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.sk-eb-map-tip .sk-tip-req { white-space: nowrap; }
+.sk-tip-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; vertical-align: 1px; border-radius: 50%; background: #6b7280; }
+.sk-tip-dot.st-OK { background: #16a34a; }
+.sk-tip-dot.st-LOW { background: #d97706; }
+.sk-tip-dot.st-SPLIT, .sk-tip-dot.st-SHORT { background: #dc2626; }
+.sk-tip-dot.st-BOUGHT { background: #7c3aed; }

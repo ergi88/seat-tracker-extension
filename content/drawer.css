@@ -1,0 +1,941 @@
+/* Seat Tracker - the viagogo event page drawer (inside its shadow root; tokens from ui/app.css) */
+
+.vg-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--dr-h, 340px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 28px var(--shadow);
+}
+.vg-drawer:not(.open) {
+  height: 48px;
+  width: 50%;
+}
+
+.dr-top {
+  flex: none;
+}
+
+.dr-grip {
+  flex: none;
+  height: 8px;
+  cursor: ns-resize;
+  position: relative;
+  touch-action: none;
+}
+.dr-grip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  width: 44px;
+  height: 3px;
+  margin-left: -22px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.vg-drawer:not(.open) .dr-grip {
+  display: none;
+}
+
+.dr-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 8px;
+  min-width: 0;
+}
+.vg-drawer:not(.open) .dr-bar {
+  padding-top: 8px;
+}
+.dr-bar .logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  flex: none;
+}
+.dr-titles {
+  flex: 1;
+  min-width: 0;
+}
+.dr-title {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dr-sub {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dr-notice {
+  flex: none;
+  margin: 0 14px 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--okbg);
+  color: var(--ok);
+}
+.dr-notice.err {
+  background: var(--badbg);
+  color: var(--bad);
+}
+
+.dr-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dr-empty {
+  margin: 6px 0;
+  color: var(--muted);
+  max-width: 72ch;
+}
+.dr-results,
+.dr-stats {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dr-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.dr-tile {
+  background: var(--soft);
+  border-radius: 7px;
+  padding: 6px 8px;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.dr-tile b {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dr-tile span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.dr-tile.good b {
+  color: var(--ok);
+}
+
+.dr-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dr-chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.dr-chart .axis {
+  fill: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.dr-chart .axis.mine {
+  fill: var(--accent);
+  font-weight: 600;
+}
+.dr-chart .lab {
+  fill: var(--muted);
+  font-size: 10px;
+}
+.dr-chart .lab.mine {
+  fill: var(--ink);
+  font-weight: 600;
+}
+.dr-chart .range {
+  stroke: var(--softer);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.dr-chart .dot {
+  fill: var(--muted);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.12s ease, r 0.12s ease;
+}
+.dr-chart .dot:hover {
+  opacity: 1;
+  r: 5;
+}
+.dr-chart .dot.mine {
+  fill: var(--accent);
+  opacity: 1;
+  stroke: var(--bg);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: opacity 0.12s ease, r 0.12s ease, stroke-width 0.12s ease;
+}
+.dr-chart .dot.mine:hover {
+  r: 6.5;
+  stroke-width: 2;
+}
+
+.dr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.dr-controls select {
+  width: auto;
+}
+.dr-controls .dr-search {
+  width: 210px;
+  max-width: 45vw;
+}
+/* the count while "Only instant download" is on */
+.dr-instant {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--muted);
+  font-size: 12px;
+}
+.dr-instant b {
+  color: var(--accent);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dr-found {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.dr-table-wrap {
+  overflow-x: auto;
+}
+.dr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.dr-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dr-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.dr-table td.n {
+  text-align: right;
+}
+.dr-table th:not(:first-child):not(:last-child) {
+  text-align: right;
+}
+.dr-table tr.sec {
+  cursor: pointer;
+}
+.dr-table tr.sec:hover td,
+.dr-table tr.sec.open td {
+  background: var(--soft);
+}
+.dr-table tr.sec:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.dr-table tr.sec td:first-child {
+  border-left: 3px solid transparent;
+}
+.dr-table tr.k-cheapest td:first-child,
+.dr-table tr.k-alone td:first-child {
+  border-left-color: var(--s-ok);
+}
+.dr-table tr.k-above td:first-child {
+  border-left-color: var(--s-low);
+}
+.dr-table td:first-child b {
+  margin-right: 6px;
+}
+.dr-table td:first-child small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.dr-table tr.stale td {
+  color: var(--muted);
+}
+.dr-table .v-cheapest,
+.dr-table .v-alone {
+  color: var(--ok);
+  font-weight: 600;
+}
+.dr-table .v-above {
+  color: var(--low);
+  font-weight: 600;
+}
+.dr-table .v-none {
+  color: var(--muted);
+}
+.dr-table tr.dr-detail td {
+  background: var(--soft);
+  white-space: normal;
+  padding: 8px 10px 10px;
+}
+
+/* an opened section: graph and listings, and the money beside them */
+.dr-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 760px) minmax(260px, 340px);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .dr-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.dr-money {
+  display: grid;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+}
+.dr-money-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.dr-money .note { margin: 0; }
+.dr-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: var(--lowbg);
+  color: var(--ink);
+}
+.dr-suggest b { color: var(--low); font-variant-numeric: tabular-nums; }
+.dr-suggest button { margin-left: auto; }
+
+.dr-detail-box {
+  display: grid;
+  gap: 6px;
+  max-width: 760px;
+}
+.dr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.dr-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.dr-list li.mine {
+  color: var(--accent);
+  font-weight: 600;
+}
+.dr-list li.sold {
+  opacity: 0.55;
+}
+.dr-list .p {
+  min-width: 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.dr-list .m {
+  color: var(--muted);
+  font-weight: 400;
+}
+.dr-acts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------------- your listings, signed out ---------------------------- */
+
+.dr-list li.maybe {
+  color: var(--low);
+  font-weight: 600;
+}
+.dr-yesno {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.dr-yesno button.on {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.dr-paste {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.dr-paste textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px dashed var(--accent);
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.dr-compare {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.dr-compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.dr-compare-head .spacer { flex: 1; }
+.dr-compare .m { color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.dr-compare-sum { margin: 0; font-size: 12px; font-weight: 600; }
+.dr-compare .note { margin: 0; }
+.dr-mine-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.dr-mine-list li {
+  display: grid;
+  gap: 3px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--soft);
+}
+.dr-mine-list .t, .dr-mine-list .d {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.dr-mine-list .d { padding-left: 2px; font-variant-numeric: tabular-nums; }
+.dr-mine-list li.st-hidden { background: var(--badbg); }
+.pill.st-mine { color: var(--ok); background: var(--okbg); }
+.pill.st-possible { color: var(--low); background: var(--lowbg); }
+.pill.st-hidden { color: var(--bad); background: var(--badbg); }
+.pill.st-unseen { color: var(--none); background: var(--nonebg); }
+
+/* ---------------- the team in the drawer ---------------------------- */
+
+.dr-table tr.k-teamonly td:first-child {
+  border-left-color: var(--accent);
+}
+.only-us {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.dr-table td.gap.g-ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+.dr-table td.gap.g-warn {
+  color: var(--low);
+  font-weight: 600;
+}
+.dr-table td.gap.g-bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+.dr-table td.real {
+  text-align: right;
+}
+.dr-table td.real .real-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.dr-table td.real .real-row b {
+  font-weight: 500;
+  color: var(--muted);
+}
+.dr-table td.real .real-row.mine b {
+  color: var(--accent);
+  font-weight: 600;
+}
+.dr-table td.real .real-row.stale {
+  opacity: 0.6;
+}
+.dr-list li.team {
+  color: var(--ink);
+}
+.dr-list li.team .p {
+  color: var(--accent);
+}
+.dr-tell {
+  max-width: 460px;
+}
+
+/* ---------------- face values from the ticket site --------------------- */
+
+.dr-face-box {
+  display: grid;
+  gap: 4px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dr-face-box .dr-paste { padding: 2px 0 6px; border-bottom: 0; }
+.dr-face-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.dr-face-line .spacer { flex: 1; }
+.dr-face-line .m { color: var(--muted); font-size: 11.5px; }
+.dr-face-line a { color: var(--accent); font-size: 11.5px; }
+
+/* the face value column: price, dollars, the sector it is matched to */
+.dr-table td.fv b { display: block; }
+.dr-table td.fv small { display: block; color: var(--muted); font-size: 10.5px; }
+.dr-table td.ranked small { color: var(--muted); font-size: 10.5px; }
+.dr-table select.fv-pick {
+  width: auto;
+  max-width: 150px;
+  margin-top: 2px;
+  padding: 0 2px;
+  font-size: 10.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+/* how far a price is from the face value: under it, close to it, well over */
+.fv.fv-lo { color: var(--bad); }
+.fv.fv-mid { color: var(--low); }
+.fv.fv-hi { color: var(--ok); }
+.dr-list .fv { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dr-table td.fv-lo, .dr-table td.fv-mid, .dr-table td.fv-hi { font-weight: 600; }
+
+.dr-face-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+.dr-face-sum .m { color: var(--muted); font-size: 11.5px; }
+.dr-face-sum .fv { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.dr-face-seats {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 4px;
+}
+.dr-face-seats .note { margin: 0; }
+.dr-face-seats .tier-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.dr-face-seats tr.sec:not([title]) { cursor: default; }
+
+/* a viagogo section split over several face sectors: each price and its seats */
+.dr-table td.fv small.fv-split { color: var(--accent); }
+.dr-face-head { display: grid; gap: 4px; margin: 0 0 8px; }
+.dr-face-head .dr-face-sum { margin: 0; }
+.dr-face-split {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.dr-face-split li {
+  display: grid;
+  grid-template-columns: 14px minmax(110px, auto) 80px 64px 80px 80px 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.dr-face-split li.empty { opacity: 0.55; }
+.dr-face-split .tier-dot { width: 9px; height: 9px; border-radius: 50%; align-self: center; }
+.dr-face-split .p { text-align: right; font-weight: 600; }
+.dr-face-split .m { color: var(--muted); }
+.dr-face-split .fv { font-weight: 600; }
+
+/* ---------------- price groups (fold on click) ------------------------- */
+
+.dr-tier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.dr-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.dr-tier .caret { width: 12px; color: var(--ink); font-size: 12px; line-height: 1; }
+.dr-tier .tier-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--bg);
+}
+.dr-tier b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.dr-tier .m { color: var(--muted); font-size: 11.5px; }
+.dr-tier .fv { font-weight: 600; font-size: 11.5px; }
+.dr-tier:hover b { color: var(--accent); }
+.dr-table tr.dr-tier-row td {
+  padding: 9px 8px 5px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  white-space: normal;
+}
+.dr-face-seats > .dr-tier { font-size: 12.5px; }
+.dr-face-line select.dr-face-events { width: auto; max-width: 420px; font-size: 12px; padding: 2px 6px; }
+
+/* ---------------- Listings | Face value tabs ---------------------------- */
+
+.dr-tabs {
+  display: flex;
+  gap: 4px;
+  margin: -4px 0 -6px;
+  border-bottom: 1px solid var(--line);
+}
+.dr-tabs button.tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 5px 10px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  box-shadow: none;
+}
+.dr-tabs button.tab:hover { color: var(--ink); }
+.dr-tabs button.tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+
+.dr-face-view { display: grid; gap: 10px; min-width: 0; }
+.dr-face-view > .dr-face-box { padding: 0; border: 0; }
+.dr-face-source b { font-size: 13px; }
+.dr-face-totals { font-size: 12.5px; }
+.dr-face-totals .fv { font-weight: 600; }
+.dr-face-table td small { display: block; font-size: 10.5px; color: inherit; opacity: .8; }
+.dr-face-table td.n b { display: block; }
+.dr-face-table td:first-child small { display: inline; margin-left: 6px; color: var(--accent); }
+.dr-list li.at-below .p { color: var(--bad); }
+
+/* "By section" / "By price" */
+.dr-layout {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--soft);
+}
+.dr-layout button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dr-layout button.on {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+
+/* the price list's ticket chips and its count */
+.dr-qty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 8px;
+}
+.dr-qty .m {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.dr-qty button {
+  min-width: 30px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.dr-qty button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+/* the price list's sector price chips */
+.dr-groups {
+  margin-top: -2px;
+}
+.dr-groups button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dr-groups .tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.dr-groups button.none:not(.on) {
+  opacity: 0.5;
+}
+.dr-qty-count {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dr-qty-count b {
+  color: var(--ink);
+}
+
+/* the price list: yours stand out */
+.dr-prices td.price {
+  font-weight: 700;
+}
+.dr-prices td.details {
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: normal;
+}
+.dr-prices tr.mine td {
+  background: var(--accent-soft);
+}
+.dr-prices tr.mine td.sec-name,
+.dr-prices tr.mine td.price {
+  color: var(--accent);
+}
+.dr-prices tr.maybe td {
+  background: var(--soft);
+}
+
+/* ---------------- stands (eBileta at Air Albania) ----------------------- */
+
+.dr-stands button.none:not(.on) { opacity: 0.45; }
+
+/* ---------------- prices for the "No price" sections -------------------- */
+
+.dr-noprice {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+.dr-noprice-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.dr-noprice-head .m { color: var(--muted); font-size: 11.5px; }
+.dr-noprice-head .spacer { flex: 1; }
+.dr-noprice-head select { width: auto; font-size: 12px; padding: 1px 4px; }
+.dr-noprice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+.dr-noprice-list li {
+  display: grid;
+  grid-template-columns: 64px minmax(180px, 1fr) 80px 90px auto;
+  align-items: center;
+  gap: 8px;
+}
+.dr-noprice-list .m { color: var(--muted); font-size: 11.5px; }
+.dr-noprice-list input {
+  width: 90px;
+  padding: 2px 6px;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- Changes: two saved scans side by side ------------------ */
+
+.dr-diff-view { display: grid; gap: 8px; min-width: 0; }
+.dr-diff-view > .note { margin: 0; font-size: 11.5px; }
+.dr-diff-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12px;
+}
+.dr-diff-pick .m { color: var(--muted); font-size: 11.5px; }
+.dr-diff-pick select { width: auto; max-width: 380px; font-size: 12px; padding: 2px 6px; }
+.dr-diff-tiles { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.dr-tile.c-new b { color: var(--accent); }
+.dr-tile.c-gone b { color: var(--ink); }
+.dr-tile.c-price b, .dr-tile.c-qty b { color: var(--low); }
+.dr-diff-kinds .check { margin-left: 8px; font-size: 12px; }
+.dr-diff-kinds button.none:not(.on) { opacity: 0.45; }
+
+.dr-diff td.mv .m { color: var(--muted); }
+.dr-diff td.mv .arrow { color: var(--muted); }
+.dr-diff td.mv small { display: block; font-size: 10.5px; color: var(--muted); }
+/* prices, as a seller reads them: others cheaper is bad news, dearer is room */
+.dr-diff .down, .dr-diff td.mv.price small.down { color: var(--bad); font-weight: 600; }
+.dr-diff .up, .dr-diff td.mv.price small.up { color: var(--ok); font-weight: 600; }
+.dr-diff td.c-new { color: var(--ok); font-weight: 600; }
+.dr-diff td.c-gone { color: var(--bad); font-weight: 600; }
+.dr-diff td.c-qty { color: var(--low); font-weight: 600; }
+.dr-diff td small.badge {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.dr-diff td small.badge.new { color: var(--ok); background: var(--okbg); }
+.dr-diff td small.badge.gone { color: var(--bad); background: var(--badbg); }
+.dr-diff tr.st-gone td { opacity: 0.75; }
+
+.dr-changes li .pill { min-width: 58px; text-align: center; }
+.dr-changes li.chg-new .pill { color: var(--accent); background: var(--accent-soft); }
+.dr-changes li.chg-gone .pill { color: var(--none); background: var(--nonebg); }
+.dr-changes li.chg-down .pill { color: var(--bad); background: var(--badbg); }
+.dr-changes li.chg-up .pill { color: var(--ok); background: var(--okbg); }
+.dr-changes li.chg-qty .pill { color: var(--low); background: var(--lowbg); }
+.dr-changes li.chg-gone .p { text-decoration: line-through; color: var(--muted); }
+.dr-changes .p { min-width: 110px; }
+.dr-changes .q { font-variant-numeric: tabular-nums; }
+.dr-changes .up { color: var(--ok); font-weight: 600; }
+.dr-changes .down { color: var(--bad); font-weight: 600; }
+.dr-changes .guess { font-style: italic; }
+
+.dr-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 11.5px;
+}
+.dr-saved .m { color: var(--muted); }
+.dr-saved-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 2px 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.dr-saved-chip button { padding: 0 6px; line-height: 1.2; }
+
+/* the Last sales tab: viagogo's "just sold" toasts for this event */
+.dr-last-view td small {
+  color: var(--muted);
+  font-size: 10.5px;
+  margin-left: 6px;
+}
+.dr-last-view td:first-child small { margin-left: 0; }
+.dr-last-view .dr-table th:last-child { text-align: right; }
+.dr-last-view .dr-table td:last-child { text-align: right; white-space: nowrap; }
+/* a day's heading: its date, tickets and sales */
+.dr-last-view .dr-table tr.dr-day td {
+  text-align: left;
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--ink);
+  background: var(--soft, transparent);
+  border-bottom: 1px solid var(--line);
+}

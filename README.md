@@ -59,8 +59,10 @@ PCs update. Running it twice is harmless.
    later is safe; it only creates what is missing.
 2. **Authentication → Providers → Email** → turn **"Allow new users to sign up" OFF**.
 3. **Authentication → Users → Add user** for each member (email + password, auto-confirm).
-4. Put those same emails in the `members` insert at the bottom of `schema.sql` and run it again.
-   Nobody outside that list can read or write anything.
+4. Copy `supabase/team.example.sql` to `supabase/team.sql`, put those same emails in it, and run it
+   after `schema.sql` (and again whenever someone joins). Nobody outside that list can read or write
+   anything. `team.sql` stays off GitHub (it is in `.gitignore`), so the team's emails are never
+   published; running `schema.sql` again never removes a member.
 
 The project URL and the **publishable** key are built into `core/config.js`. That key is public by
 design — on its own it opens nothing, because every table is behind the members list. The secret /
@@ -701,6 +703,7 @@ icons/
 supabase/
   schema.sql               the shared database: tables, access rules, leases, numbering, listings,
                            sales, last sales, accounts, purchases, the price list, saved scans
+  team.example.sql         who is on the team; copy to team.sql (not in git) with the real emails
 tests/
   *.test.js                unit tests (node --test)
   db/schema.test.mjs       the database rules on a real Postgres

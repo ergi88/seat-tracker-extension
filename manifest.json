@@ -1,0 +1,215 @@
+{
+  "manifest_version": 3,
+  "name": "Seat Tracker",
+  "version": "7.4.0",
+  "description": "Read-only seat availability tracker for eBileta, eFinity and Posttick: client requests, blocks of adjacent seats, desktop and phone alerts.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "unlimitedStorage", "alarms", "notifications"],
+  "host_permissions": [
+    "https://al.ebileta.al/*",
+    "https://eu.ebileta.al/*",
+    "https://efinity.rs/*",
+    "https://findloyalty-api.oblaci.rs/*",
+    "https://posttick.com/*",
+    "https://*.seatsio.net/*",
+    "https://ntfy.sh/*",
+    "https://open.er-api.com/*",
+    "https://mqnukcyvjvifvgunhtpf.supabase.co/*",
+    "https://www.viagogo.com/*",
+    "https://sell.viagogo.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Seat Tracker",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://al.ebileta.al/biglietteria/pub/buyseats/scegliSettorePub.do*",
+        "https://al.ebileta.al/biglietteria/listaEventiPub.do*",
+        "https://eu.ebileta.al/biglietteria/pub/buyseats/scegliSettorePub.do*",
+        "https://eu.ebileta.al/biglietteria/listaEventiPub.do*"
+      ],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/face.js",
+        "core/help.js",
+        "sites/ebileta.js",
+        "content/act.js",
+        "ui/components.js",
+        "content/sites/ebileta-act.js",
+        "content/shell.js",
+        "content/sites/ebileta-sectors.js",
+        "content/sites/ebileta-events.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://al.ebileta.al/biglietteria/pub/buyseats/scegliPostoPub.do*",
+        "https://eu.ebileta.al/biglietteria/pub/buyseats/scegliPostoPub.do*"
+      ],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/ebileta.js",
+        "content/act.js",
+        "ui/components.js",
+        "content/sites/ebileta-act.js",
+        "content/shell.js",
+        "content/sites/ebileta-seats.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://al.ebileta.al/biglietteria/trans/transazione.do*",
+        "https://eu.ebileta.al/biglietteria/trans/transazione.do*"
+      ],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/ebileta.js",
+        "ui/components.js",
+        "content/sites/ebileta-checkout.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://efinity.rs/event-map/*"],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/efinity.js",
+        "core/face.js",
+        "content/act.js",
+        "ui/components.js",
+        "content/sites/efinity-act.js",
+        "content/shell.js",
+        "content/sites/efinity.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://posttick.com/c/*"],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/posttick.js",
+        "ui/components.js",
+        "content/shell.js",
+        "content/sites/posttick.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://sell.viagogo.com/*", "https://my.viagogo.com/*"],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/ebileta.js",
+        "sites/efinity.js",
+        "sites/posttick.js",
+        "core/viagogo.js",
+        "core/market.js",
+        "core/sales.js",
+        "core/lastsales.js",
+        "core/team.js",
+        "ui/components.js",
+        "ui/lastsalewatch.js",
+        "content/shell.js",
+        "content/sites/viagogo-lastsale.js",
+        "content/sites/viagogo.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.viagogo.com/*"],
+      "js": [
+        "core/util.js",
+        "core/rules.js",
+        "core/registry.js",
+        "core/settings.js",
+        "core/profit.js",
+        "core/help.js",
+        "sites/ebileta.js",
+        "sites/efinity.js",
+        "sites/posttick.js",
+        "core/viagogo.js",
+        "core/market.js",
+        "core/team.js",
+        "core/face.js",
+        "core/lastsales.js",
+        "ui/components.js",
+        "ui/lastsalewatch.js",
+        "content/sites/viagogo-event.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "ui/app.css",
+        "content/sidebar.css",
+        "icons/32.png",
+        "content/sites/posttick-page.js",
+        "content/drawer.css",
+        "content/checkout.css"
+      ],
+      "matches": [
+        "https://al.ebileta.al/*",
+        "https://eu.ebileta.al/*",
+        "https://efinity.rs/*",
+        "https://posttick.com/*",
+        "https://sell.viagogo.com/*",
+        "https://my.viagogo.com/*",
+        "https://www.viagogo.com/*"
+      ]
+    }
+  ]
+}

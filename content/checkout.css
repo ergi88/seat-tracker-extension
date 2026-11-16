@@ -1,0 +1,76 @@
+/* Seat Tracker - the eBileta checkout drawer (inside its shadow root; tokens from ui/app.css) */
+
+.ck-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 28px var(--shadow);
+}
+.ck-drawer:not(.open) { width: min(560px, 100%); border-top-right-radius: 12px; border-right: 1px solid var(--line); }
+
+.ck-bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-width: 0; cursor: default; }
+.ck-bar .logo { width: 22px; height: 22px; flex: none; }
+.ck-titles { display: grid; min-width: 0; }
+.ck-titles b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ck-titles span { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ck-bar .spacer { flex: 1; }
+
+.ck-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 14px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 900px) { .ck-body { grid-template-columns: minmax(0, 1fr); } }
+
+.ck-notice { grid-column: 1 / -1; padding: 7px 10px; border-radius: 8px; background: var(--okbg); color: var(--ok); font-weight: 600; font-size: 12.5px; }
+.ck-notice.bad { background: var(--badbg); color: var(--bad); }
+
+.ck-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; min-width: 0; }
+.ck-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ck-head h3 { margin: 0; font-size: 13px; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
+.ck-tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ck-tools > button, .ck-line > button { flex: none; white-space: nowrap; }
+.ck-select { max-width: 100%; min-width: 0; font: inherit; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+
+.ck-table-wrap { overflow-x: auto; }
+.ck-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ck-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; padding: 2px 4px 4px; white-space: nowrap; }
+.ck-table td { padding: 3px 4px; vertical-align: middle; }
+.ck-table tr.all td { background: var(--accent-soft); }
+.ck-table tr.all td:first-child { border-radius: 6px 0 0 6px; }
+.ck-table tr.all td:last-child { border-radius: 0 6px 6px 0; }
+.ck-all { font-weight: 700; color: var(--accent); white-space: nowrap; }
+.ck-seat b { font-weight: 650; white-space: nowrap; }
+.ck-in { width: 100%; min-width: 86px; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.ck-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.ck-in.bad { border-color: var(--bad); background: var(--badbg); }
+
+.ck-line { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.ck-line > span { color: var(--muted); flex: none; }
+.ck-line .ck-select { flex: 1; }
+.ck-group { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--soft); font-size: 12.5px; }
+.ck-group .m { color: var(--muted); text-align: right; }
+.ck-group .ck-select { grid-column: 1 / -1; }
+.ck-warn { padding: 6px 8px; border-radius: 8px; background: var(--badbg); color: var(--bad); font-weight: 600; font-size: 12.5px; }
+.ck-done { padding: 8px 10px; border-radius: 8px; background: var(--okbg); color: var(--ok); font-weight: 600; font-size: 12.5px; }
+.ck-card .note { margin: 0; font-size: 11.5px; color: var(--muted); }
+.ck-card > button.primary { justify-self: start; }
+
+/* the new-account form, across the drawer */
+.ck-new { grid-column: 1 / -1; border-color: var(--accent); }
+.ck-new-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 700px) { .ck-new-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ck-new-grid label { display: grid; gap: 3px; font-size: 11px; color: var(--muted); font-weight: 600; }
+.ck-actions { display: flex; gap: 6px; }

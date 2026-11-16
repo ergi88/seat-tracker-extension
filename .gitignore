@@ -1,0 +1,6 @@
+# real emails of the team: see supabase/team.example.sql
+supabase/team.sql
+# release zips and Mac clutter
+*.zip
+.DS_Store
+node_modules/
