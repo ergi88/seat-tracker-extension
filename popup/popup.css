@@ -73,6 +73,8 @@ main { padding: 2px 12px 18px; }
 .devices { margin: 6px 0 2px; }
 .device-row { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 3px 0; border-top: 1px dashed var(--line); }
 .device-row .dot.st-idle { background: var(--s-none); }
+.device-row .device-x { min-width: 0; padding: 0 6px; line-height: 16px; color: var(--muted); }
+.device-row .device-x:hover { color: var(--bad, #b3261e); }
 
 .idle-events { margin: 4px 0 10px; }
 .idle-events > summary { font-size: 11px; color: var(--muted); cursor: pointer; padding: 3px 0; }

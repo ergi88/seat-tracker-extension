@@ -1036,17 +1036,38 @@
     const pcName = ui.textInput(st.device.name, v => ui.send('setDeviceName', { name: v }).then(() => refresh(true)).catch(e => ctx.notice(e.message, true)), 'e.g. Ergi laptop');
     ac.append(field('This PC', pcName));
     if (st.devices.length) {
+      /* old PCs can be taken off: × on one, or every one not seen for 30 days.
+       * This PC and PCs online now stay; one still in use comes back by itself. */
+      const removeDevices = async (ids, what) => {
+        if (!confirm(`Remove ${what} from the team's list? A PC still in use comes back by itself the next time it runs.`)) return;
+        try { const r = await ui.send('deleteDevices', { ids }); ctx.notice(`Removed ${r.removed} PC${r.removed === 1 ? '' : 's'} from the list.`); await refresh(true); }
+        catch (e) { ctx.notice(e.message, true); }
+      };
+      const OLD_MS = 30 * 86400000;
+      const old = st.devices.filter(d => !d.thisPc && !d.online && Date.now() - d.lastSeen >= OLD_MS);
       const list = ui.el('div', 'devices');
       for (const d of st.devices) {
         const row = ui.el('div', 'device-row');
         row.append(ui.el('span', 'dot ' + (d.online ? 'st-OK' : 'st-idle')));
-        row.append(ui.el('span', null, d.name + (d.thisPc ? ' (this PC)' : '')));
+        row.append(ui.el('span', null, (d.name || 'unnamed PC') + (d.thisPc ? ' (this PC)' : '')));
         row.append(ui.el('span', 'muted', d.owner));
         row.append(ui.el('span', 'spacer'));
         row.append(ui.el('span', 'muted', d.online ? 'online' : U.ago(d.lastSeen)));
+        if (!d.thisPc && !d.online) {
+          const x = ui.button('×', 'mini device-x', () => removeDevices([d.id], `"${d.name || 'unnamed PC'}" (${d.owner})`), 'Take this PC off the list');
+          x.setAttribute('aria-label', `Remove ${d.name || 'unnamed PC'}`);
+          row.append(x);
+        }
         list.append(row);
       }
       ac.append(list);
+      if (old.length) {
+        const sweep = ui.button(`Remove ${old.length} not seen for 30 days`, 'mini', () => removeDevices(old.map(d => d.id), `${old.length} PC${old.length === 1 ? '' : 's'} not seen for 30 days`),
+          'Take every PC that has not run Seat Tracker for 30 days off the list');
+        const r = ui.el('div', 'row');
+        r.append(sweep);
+        ac.append(r);
+      }
     }
     const out = ui.button('Sign out', 'mini', () => ui.busy(out, async () => {
       await ui.send('signOut');

@@ -583,6 +583,15 @@ const Remote = (() => {
     return devices;
   }
 
+  /* old PCs off the list; one still in use comes back at its next heartbeat */
+  async function deleteDevices(ids) {
+    const list = (ids || []).map(String).filter(Boolean);
+    if (!list.length) return 0;
+    await Supa.rest('DELETE', `devices?${inList('id', list)}`, { prefer: 'return=minimal' });
+    await mutateMirror(m => { m.devices = (m.devices || []).filter(d => !list.includes(d.id)); });
+    return list.length;
+  }
+
   /* ---------------- event lists (eBileta) --------------------------- */
 
   /* returns only the rows that were not there before */
@@ -614,7 +623,7 @@ const Remote = (() => {
     saveScans, fetchScans, saveHealth,
     claimLease, releaseLease,
     insertAlert, alertsSince, markHandled,
-    ensureProfile, saveProfile, saveTeam, heartbeat, fetchDevices,
+    ensureProfile, saveProfile, saveTeam, heartbeat, fetchDevices, deleteDevices,
     insertCatalog, upsertCatalog, markCatalogSite, cleanup,
     saveSectorPrice, deleteSectorPrice
   };

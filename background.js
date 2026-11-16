@@ -863,6 +863,21 @@ const HANDLERS = {
     return true;
   },
 
+  /* Take PCs off the team's list. Never this PC, never one online now: a
+   * PC still in use would only come back at its next heartbeat anyway. */
+  async deleteDevices(msg) {
+    const m = await model();
+    const me = (await ensureDevice()).id;
+    const now = Date.now();
+    const ids = (msg.ids || []).map(String).filter(id => {
+      const d = (m.devices || []).find(x => x.id === id);
+      return d && id !== me && now - d.lastSeen >= ONLINE_MS;
+    });
+    if (!ids.length) throw new Error('Nothing to remove: this PC and PCs online now stay on the list.');
+    const n = await Remote.deleteDevices(ids);
+    return { removed: n };
+  },
+
   async setDisplayName(msg) {
     const m = await me();
     await Remote.saveProfile(m.meId, { displayName: String(msg.name || '').trim() });

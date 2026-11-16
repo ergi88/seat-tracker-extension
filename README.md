@@ -34,6 +34,10 @@ same scan — see [The team](#the-team).
 
 Repeat on every PC. The same person may be signed in on several PCs at once.
 
+**Settings → Account** lists every PC that ever signed in, with who uses it and when it last ran.
+Old ones can be taken off: **×** on one, or **Remove N not seen for 30 days**. This PC and PCs online
+now always stay. A PC taken off that is still in use simply comes back the next time it runs.
+
 ### Updating to a new version
 
 The popup's **Updates** section tells every signed-in PC when a newer Seat Tracker is out:

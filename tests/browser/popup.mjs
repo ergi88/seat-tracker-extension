@@ -108,7 +108,7 @@ const STUB = `(() => {
       sendMessage(msg, cb) {
         (window.__log = window.__log || []).push(JSON.parse(JSON.stringify(msg)));
         if (msg.type === 'deleteRequests') window.__deleted = (window.__deleted || []).concat(msg.ids);
-        setTimeout(() => cb({ ok: true, data: msg.type === 'state' ? window.__state() : null }), 10);
+        setTimeout(() => cb({ ok: true, data: msg.type === 'state' ? window.__state() : msg.type === 'deleteDevices' ? { removed: msg.ids.length } : null }), 10);
       }
     },
     tabs: {
@@ -463,6 +463,37 @@ const READ = `window.__t = {
     await t.eval(`(() => { for (const x of document.querySelectorAll('#listings, #viewswitch')) x.hidden = true; document.getElementById('updateBox').scrollIntoView(); return true; })()`);
     await sleep(200);
     console.log('  screenshot:', await t.shot('popup-updates.png'));
+
+    /* Settings: old PCs can be taken off the list */
+    await t.eval(`(() => {
+      window.confirm = () => true;
+      const base = window.__state;
+      const day = 86400000;
+      window.__state = () => { const st = base();
+        st.devices = [{ id: 'pc1', name: 'Office', owner: 'Sam Rivers', lastSeen: Date.now(), online: true, thisPc: true, version: '7.4.0' },
+          { id: 'pc2', name: 'Laptop', owner: 'Aldo', lastSeen: Date.now() - 3 * 3600000, online: false, thisPc: false, version: '7.4.0' },
+          { id: 'pc3', name: 'Old desk', owner: 'Aldo', lastSeen: Date.now() - 40 * day, online: false, thisPc: false, version: '6.0.0' },
+          { id: 'pc4', name: '', owner: 'Sam Rivers', lastSeen: Date.now() - 90 * day, online: false, thisPc: false, version: '' }];
+        return st; };
+      document.getElementById('updateBox').open = false;
+      document.getElementById('settingsBox').open = true;
+      document.getElementById('muteBtn').click();
+      return true; })()`);
+    await t.eval(`(() => { [...document.querySelectorAll('#muteMenu button')].find(b => b.textContent === '30 min').click(); return true; })()`);
+    const devs = await until(() => t.eval(`(() => { const rows = [...document.querySelectorAll('#settings .device-row')]; return rows.length === 4 ? rows.map(r => r.textContent + (r.querySelector('.device-x') ? ' [x]' : '')) : null; })()`), 3000);
+    expect(!!devs && !/\[x\]/.test(devs[0]) && devs.slice(1).every(r => /\[x\]/.test(r)) && /unnamed PC/.test(devs[3]),
+      'every PC but this one (and any online) has a × to take it off', devs);
+    const sweepText = await t.eval(`([...document.querySelectorAll('#settings button')].find(b => /not seen for 30 days/.test(b.textContent)) || {}).textContent || ''`);
+    expect(sweepText === 'Remove 2 not seen for 30 days', 'one button takes off every PC not seen for 30 days', sweepText);
+    await t.eval(`(() => { [...document.querySelectorAll('#settings button')].find(b => /not seen for 30 days/.test(b.textContent)).click(); return true; })()`);
+    const swept = await until(() => t.eval(`(() => { const m = (window.__log || []).find(x => x.type === 'deleteDevices'); return m ? m.ids.join(',') : null; })()`), 3000);
+    expect(swept === 'pc3,pc4', 'it sends only the two old ones', swept);
+    await t.eval(`(() => { window.__log = []; [...document.querySelectorAll('#settings .device-x')][0].click(); return true; })()`);
+    const oneDev = await until(() => t.eval(`(() => { const m = (window.__log || []).find(x => x.type === 'deleteDevices'); return m ? m.ids.join(',') : null; })()`), 3000);
+    expect(oneDev === 'pc2', '× takes off that one PC', oneDev);
+    await t.eval(`(() => { document.getElementById('settingsBox').scrollIntoView(); return true; })()`);
+    await sleep(200);
+    console.log('  screenshot:', await t.shot('popup-devices.png'));
     expect(t.errors.length === 0, 'nothing thrown', t.errors);
 
     console.log(failures ? `\n✗ ${failures} check(s) failed · ${Math.round((Date.now() - t0) / 1000)} s`

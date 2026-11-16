@@ -119,3 +119,31 @@ test('nothing pretends to write to local storage', () => {
   assert.ok(/withLocal\(store => \{[\s\S]*?return patch\(\{ cartHolds: holds \}\);[\s\S]*?\}, \['cartHolds'\]\)/.test(src),
     'and so is the cart hold that pauses scans');
 });
+
+/* Taking old PCs off the team's list: never this PC, never one online now. */
+test('deleteDevices removes only old PCs, never this one or one online', async () => {
+  const vm = require('node:vm');
+  const src = fs.readFileSync(path.join(ROOT, 'background.js'), 'utf8');
+  const listed = [...(/importScripts\(([\s\S]*?)\);/.exec(src)[1]).matchAll(/'([^']+)'/g)].map(m => m[1]);
+  const anything = () => new Proxy(function () {}, { get: (t, k) => (k === 'then' ? undefined : anything()), apply: () => anything(), has: () => true });
+  const sandbox = { chrome: anything(), fetch: anything(), navigator: { onLine: true }, console, importScripts: () => {} };
+  sandbox.globalThis = sandbox; sandbox.self = sandbox;
+  const ctx = vm.createContext(sandbox);
+  for (const f of listed.concat('background.js')) vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
+
+  const now = Date.now();
+  ctx.__devices = [
+    { id: 'me', lastSeen: now }, { id: 'live', lastSeen: now - 30000 },
+    { id: 'old', lastSeen: now - 40 * 86400000 }, { id: 'laptop', lastSeen: now - 3 * 3600000 }];
+  ctx.__sent = null;
+  vm.runInContext(`
+    model = async () => ({ devices: __devices });
+    ensureDevice = async () => ({ id: 'me' });
+    Remote.deleteDevices = async ids => { __sent = ids; return ids.length; };`, ctx);
+  const H = vm.runInContext('HANDLERS', ctx);
+
+  const r = await H.deleteDevices({ ids: ['me', 'live', 'old', 'laptop', 'nope'] });
+  assert.deepEqual([...ctx.__sent], ['old', 'laptop'], 'this PC, an online PC and an unknown id stay');
+  assert.equal(r.removed, 2);
+  await assert.rejects(() => H.deleteDevices({ ids: ['me', 'live'] }), /Nothing to remove/);
+});
