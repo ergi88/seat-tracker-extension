@@ -40,7 +40,7 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/$name"
 find . \( -path ./.git -o -path ./tests -o -path ./graphify-out -o -path ./.claude \
           -o -name node_modules \) -prune -o -type f \
-     ! -name .gitignore ! -name release.sh ! -name CLAUDE.md \
+     ! -name .gitignore ! -name .gitattributes ! -name release.sh ! -name CLAUDE.md \
      ! -name '*.zip' ! -name .DS_Store ! -path ./supabase/team.sql -print \
   | tar -cf - -T - | (cd "$tmp/$name" && tar -xf -)
 
