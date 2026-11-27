@@ -1500,11 +1500,33 @@ async function saveBuyAccount(fields, userId) {
   });
 }
 
+/* The tickets of a lot from the eBileta checkout: one per ticket the page
+ * lists for its sector, with what the page says of it (the sector as
+ * printed, row, seat, price with the fee). They have no file yet: each
+ * waits for its PDF (delivery 'pdf', the column's default), which the app
+ * attaches. p: the purchase row (snake case); checkout: [{ place, row, seat,
+ * price, currency }]. -> rows for the tickets table */
+function checkoutTicketRows(p, checkout, userId) {
+  return (checkout || []).map((t, i) => {
+    const price = Number(t.price) > 0 ? Math.round(Number(t.price) * 100) / 100 : null;
+    return {
+      id: SK.util.newId('t'), user_id: userId, purchase_id: p.id, page: i + 1,
+      sector_text: String(t.place || '').trim().slice(0, 60), sector_id: p.sector_id || null,
+      row_label: String(t.row || '').trim().slice(0, 20), seat: String(t.seat || '').trim().slice(0, 20),
+      price, currency: SK.profit.CURRENCIES.includes(t.currency) ? t.currency : p.currency
+    };
+  });
+}
+
 /* Purchases of yours, from the eBileta checkout drawer: one per sector of
- * the order. Like the app: a purchase linked to a request makes it Bought
- * once its purchases cover its tickets, and gives it the price paid when it
- * has none typed. What it cost in lek (Spent) is filled at today's rate,
- * marked auto: the app is where the bank's real charge is typed. */
+ * the order, each with its tickets (above), so the app knows every seat
+ * before the PDF comes. Like the app: a purchase linked to a request makes
+ * it Bought once its purchases cover its tickets, and gives it the price
+ * paid when it has none typed. What it cost in lek (Spent) is filled at
+ * today's rate, marked auto: the app is where the bank's real charge is
+ * typed. The tickets are saved after the lots; if they cannot be (a
+ * database without them), the lots stay counted and the app can make them.
+ * -> { purchases, tickets: how many were saved, ticketsError } */
 async function savePurchases(items, userId) {
   if (!userId) throw new Error('Sign in first.');
   const m = await model();
@@ -1529,6 +1551,15 @@ async function savePurchases(items, userId) {
     };
   });
   const saved = await Remote.insertPurchases(rows);
+  /* each lot's tickets, when the page listed exactly as many */
+  const tix = rows.flatMap((r, i) => {
+    const list = (items[i] && items[i].tickets) || [];
+    return list.length === r.qty ? checkoutTicketRows(r, list, userId) : [];
+  });
+  let tickets = 0, ticketsError = '';
+  if (tix.length) {
+    try { tickets = await Remote.insertTickets(tix); } catch (e) { ticketsError = (e && e.message) || String(e); }
+  }
   const after = await model();
   for (const p of saved) {
     const r = p.requestId && after.requests.find(x => x.id === p.requestId);
@@ -1540,5 +1571,5 @@ async function savePurchases(items, userId) {
     if (Object.keys(changes).length) await updateRequest(r.id, changes);
   }
   await updateBadge();
-  return saved;
+  return { purchases: saved, tickets, ticketsError };
 }

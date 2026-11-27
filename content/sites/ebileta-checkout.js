@@ -9,7 +9,8 @@
  *                 straight into eBileta's own fields; nothing is submitted.
  *   Purchase      the order as purchases of the buy tracker: one per sector,
  *                 with the account, the tickets, what one cost (price + fee),
- *                 the order code and the request it fills.
+ *                 the order code and the request it fills; and each ticket
+ *                 (sector, row, seat, price), waiting for its PDF in the app.
  *   New account   a buying account saved from here, without the app: its
  *                 email, names and birth date (taken from the "All tickets"
  *                 row when typed there first).
@@ -409,10 +410,14 @@
         const items = groups.map(g => ({
           accountId: chosen.id, eventKey: ev.key, sectorId: g.sector ? g.sector.id : null, requestId: pickedRequest[g.key] || null,
           qty: g.tickets.length, price: g.price, currency: g.currency, orderRef: page.code,
-          notes: page.tickets.filter(t => g.tickets.includes(t)).map(t => [t.row && 'R' + t.row, t.seat && 'S' + t.seat].filter(Boolean).join(' ')).join(', ')
+          notes: page.tickets.filter(t => g.tickets.includes(t)).map(t => [t.row && 'R' + t.row, t.seat && 'S' + t.seat].filter(Boolean).join(' ')).join(', '),
+          /* each ticket, so the lot has its tickets before the PDF comes */
+          tickets: g.tickets.map(t => ({ place: t.place, row: t.row, seat: t.seat, price: t.price, currency: t.currency }))
         }));
-        await ui.send('savePurchases', { items });
-        say(`Added ${U.plural(total, 'ticket')} on ${chosen.email}.`);
+        const out = await ui.send('savePurchases', { items });
+        say(out && out.ticketsError
+          ? `Added ${U.plural(total, 'ticket')} on ${chosen.email}, counted: their seats were not saved (${out.ticketsError}). Make the tickets in the app.`
+          : `Added ${U.plural(total, 'ticket')} on ${chosen.email}, each waiting for its PDF.`, !!(out && out.ticketsError));
         await refresh();
       } catch (e) { say(e.message, true); go.disabled = false; }
     });

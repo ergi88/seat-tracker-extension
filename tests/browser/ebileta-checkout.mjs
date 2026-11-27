@@ -71,7 +71,8 @@ const STUB = `(() => {
           if (msg.type === 'savePurchases') {
             const rows = msg.items.map((it, i) => Object.assign({ id: 'p' + i, userId: 'me' }, it));
             window.__saved.push(...rows);
-            return cb({ ok: true, data: rows });
+            /* as bg/events.js savePurchases answers: the lots, and how many tickets went with them */
+            return cb({ ok: true, data: { purchases: rows, tickets: msg.items.reduce((n, it) => n + ((it.tickets || []).length), 0), ticketsError: '' } });
           }
           if (msg.type === 'saveBuyAccount') {
             const f = msg.account;
@@ -242,6 +243,10 @@ const pageVals = id => `['cognome','nome','dataNascita','email'].map(k => docume
     expect(sent && sent.length === 1 && it.accountId === 'a1' && it.eventKey === 'ebileta:2182' && it.sectorId === '1601' && it.requestId === 'r1'
       && it.qty === 2 && it.price === 1048 && it.currency === 'ALL' && it.orderRef === 'alb00test01' && it.notes === 'RQ S10, RQ S11',
       'one purchase: account, event, sector N104, request #7, 2 tickets at 1,048 ALL, the order code and the seats', sent);
+    expect(it && JSON.stringify((it.tickets || []).map(x => [x.place, x.row, x.seat, x.price, x.currency])) === JSON.stringify([['TRIBUNA N104', 'Q', '10', 1048, 'ALL'], ['TRIBUNA N104', 'Q', '11', 1048, 'ALL']]),
+      'and each of its tickets, to be saved waiting for its PDF: sector as printed, row, seat, price', it && it.tickets);
+    const said = await until(() => t.eval(`(() => { const n = [...${R}.querySelectorAll('*')].find(x => /each waiting for its PDF/.test(x.textContent) && !x.children.length); return n && n.textContent; })()`), 3000);
+    expect(!!said, 'the drawer says the tickets wait for their PDF', said);
     const done = await until(() => t.eval(`(() => { const d = ${R}.querySelector('.ck-done'); return d && d.textContent; })()`), 3000);
     expect(/Added: 2 tickets of order alb00test01 on john.doe@example.com/.test(done || ''), 'and the drawer then says it is added, so it is not added twice', done);
 

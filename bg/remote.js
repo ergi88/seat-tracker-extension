@@ -342,6 +342,14 @@ const Remote = (() => {
     return (out || []).map(toPurchase);
   }
 
+  /* the tickets of new lots (the checkout drawer's), no file yet. This PC
+   * keeps no tickets in its mirror: the app shows them. -> how many */
+  async function insertTickets(rows) {
+    if (!rows.length) return 0;
+    await Supa.rest('POST', 'tickets', { body: rows, prefer: 'return=minimal' });
+    return rows.length;
+  }
+
   /* ---------------- viagogo listings and rates ----------------------- */
 
   /* this person's listings as read on viagogo (owner-only rows) */
@@ -650,7 +658,7 @@ const Remote = (() => {
   return {
     pull, toEvent, toRequest,
     insertEvent, patchEvent, deleteEvent,
-    insertRequest, insertRequests, patchRequest, insertAccount, insertPurchases, deleteRequest, deleteRequests, saveListings, patchListing, patchListings, deleteListings, saveSales, patchSales, insertLastSale, patchLastSale, saveVgScan, listVgScans, deleteVgScan, deleteVgScans, saveFx,
+    insertRequest, insertRequests, patchRequest, insertAccount, insertPurchases, insertTickets, deleteRequest, deleteRequests, saveListings, patchListing, patchListings, deleteListings, saveSales, patchSales, insertLastSale, patchLastSale, saveVgScan, listVgScans, deleteVgScan, deleteVgScans, saveFx,
     baselineState, casState, resetState, forgetRequest,
     saveScans, fetchScans, saveHealth,
     claimLease, releaseLease,

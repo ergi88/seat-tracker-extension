@@ -12,7 +12,7 @@
   SK.config = {
     supabaseUrl: 'https://mqnukcyvjvifvgunhtpf.supabase.co',
     supabaseKey: 'sb_publishable_bm369-eDnGno1gvbKyONRQ_mTYQdPa3',
-    version: '3.0.0'
+    version: '3.1.0'
   };
 
   if (typeof module === 'object' && module.exports) module.exports = SK;

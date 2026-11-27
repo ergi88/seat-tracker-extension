@@ -240,6 +240,29 @@ ok((await as(A, `select seats from public.sales where sale_id = '7001'`)).rows[0
 await as(B, `insert into public.sales (sale_id, user_id, tickets) values ('8001', $1, 1)`, [B]);
 ok(/sale_not_yours/.test(await err(as(A, `update public.tickets set sale_id = '8001' where id = 't2'`))), 'a ticket is sold only by its owner\'s sale');
 
+/* a status set by hand: kept with what the facts said when it was set */
+await as(A, `update public.tickets set status_pin = 'sold', pinned_over = 'listed' where id = 't2'`);
+const pin = (await as(A, `select status_pin, pinned_over from public.tickets where id = 't2'`)).rows[0];
+ok(pin.status_pin === 'sold' && pin.pinned_over === 'listed', 'a ticket keeps a status set by hand, and what it was set over', pin);
+ok(/tickets_status_pin_check/.test(await err(as(A, `update public.tickets set status_pin = 'lost' where id = 't2'`))), 'only a known status can be set');
+ok(/tickets_status_pin_check/.test(await err(as(A, `update public.tickets set pinned_over = null where id = 't2'`))), 'a pin always says what it was set over');
+await as(B, `update public.tickets set status_pin = null, pinned_over = null where id = 't2'`);
+ok((await as(A, `select status_pin from public.tickets where id = 't2'`)).rows[0].status_pin === 'sold', 'a teammate cannot clear it (not even see it)');
+await as(A, `update public.tickets set status_pin = null, pinned_over = null where id = 't2'`);
+ok((await as(A, `select status_pin from public.tickets where id = 't2'`)).rows[0].status_pin === null, 'cleared: the worked-out status shows again');
+
+/* how a ticket comes, and whether it has */
+const dv = (await as(A, `select delivery, received_at from public.tickets where id = 't3'`)).rows[0];
+ok(dv.delivery === 'pdf' && dv.received_at === null, 'a ticket comes as a PDF by default, and has not come until it is attached', dv);
+await as(A, `update public.tickets set delivery = 'mobile', received_at = now() where id = 't3'`);
+ok((await as(A, `select delivery from public.tickets where id = 't3'`)).rows[0].delivery === 'mobile', 'a ticket can come by mobile transfer, received once you say so');
+ok(/tickets_delivery_check/.test(await err(as(A, `update public.tickets set delivery = 'post' where id = 't3'`))), 'only a PDF or a mobile transfer');
+await as(A, `update public.tickets set delivery = 'pdf', received_at = null, file_path = $1 where id = 't4'`, [`${A}/t4.pdf`]);
+await db.exec(SCHEMA);
+ok((await as(A, `select received_at from public.tickets where id = 't4'`)).rows[0].received_at !== null, 'running schema.sql again: a ticket with its PDF counts as come');
+ok((await as(A, `select received_at from public.tickets where id = 't2'`)).rows[0].received_at === null, 'one with no PDF yet does not');
+await as(A, `update public.tickets set file_path = null, received_at = null where id = 't4'`);
+
 const sst = (await as(A, 'select public.sync_status() s')).rows[0].s;
 const sbt = (await as(B, 'select public.sync_status() s')).rows[0].s;
 ok(/\|4$/.test(sst.tickets) && /\|6$/.test(sst.ticketLinks) && /\|1$/.test(sbt.tickets) && sbt.ticketLinks === '|0',

@@ -702,6 +702,40 @@ begin
   return new;
 end $$;
 
+-- ------------------------------------------------------- ticket statuses
+-- A ticket's status is worked out, never stored (core/stages.js): from its
+-- PDF, the listings it is on, the sale that took it, viagogo's status for
+-- that sale, the event's time and the deposit that paid it. Only a status
+-- set by hand is kept:
+--   status_pin   the status you set (null: none, the worked-out one shows)
+--   pinned_over  the worked-out status when you set it: the pin holds while
+--                that stays so, and goes (the app clears it) once it changes
+-- The list is core/stages.js KEYS; the check is dropped and made again, so a
+-- new stage only needs this file run again.
+alter table public.tickets add column if not exists status_pin  text;
+alter table public.tickets add column if not exists pinned_over text;
+alter table public.tickets drop constraint if exists tickets_status_pin_check;
+alter table public.tickets add constraint tickets_status_pin_check check (
+  (status_pin is null and pinned_over is null) or (
+    status_pin is not null and pinned_over is not null and
+    status_pin  in ('awaiting_tickets', 'ready', 'listed', 'reserved', 'sold', 'awaiting_payout', 'paid_out', 'done', 'sold_elsewhere', 'unsold') and
+    pinned_over in ('awaiting_tickets', 'ready', 'listed', 'reserved', 'sold', 'awaiting_payout', 'paid_out', 'done', 'sold_elsewhere', 'unsold')));
+
+-- How a ticket comes, and whether it has come. A lot bought without its PDF
+-- has its tickets from the start (made in the app, or by the extension's
+-- eBileta checkout drawer with their sector, row and seat): no file yet.
+--   delivery     'pdf' (received once its PDF is attached) or 'mobile'
+--                (a mobile transfer: received once you say so)
+--   received_at  when it came (null: not yet). A ticket that has or had its
+--                PDF counts as come, from when it was saved (filled once here,
+--                for the tickets there were before this column)
+alter table public.tickets add column if not exists delivery    text not null default 'pdf';
+alter table public.tickets add column if not exists received_at timestamptz;
+alter table public.tickets drop constraint if exists tickets_delivery_check;
+alter table public.tickets add constraint tickets_delivery_check check (delivery in ('pdf', 'mobile'));
+update public.tickets set received_at = coalesce(created_at, now())
+  where received_at is null and delivery = 'pdf' and (file_path is not null or file_gone_at is not null);
+
 -- the PDFs: a private bucket, one file per ticket under its owner's folder.
 -- Skipped where there is no Storage (the PGlite test stands one in).
 do $$ begin
