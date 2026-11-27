@@ -8,6 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 require('../core/util.js');
+require('../core/viagogo.js');
 require('../core/profit.js');
 require('../core/sales.js');
 const SK = require('../core/stages.js');
@@ -56,6 +57,9 @@ test('a ticket\'s status, worked out from the furthest fact', () => {
   assert.equal(st({ received: true }), 'ready');
   assert.equal(st({ received: true, listed: true }), 'listed');
   assert.equal(st({ received: true, listed: true, reserved: true }), 'reserved');
+  assert.equal(st({ received: true, reserved: 'open', unsold: true }), 'reserved', 'a buyer still being checked after the event: still reserved');
+  assert.equal(st({ received: true, reserved: 'confirmed' }), 'sold', 'confirmed: sold at once, before its sale is read');
+  assert.equal(st({ received: true, reserved: 'confirmed', now: AFTER }), 'awaiting_payout');
   assert.equal(st({ received: true, sold: true, sale: getPaid }), 'sold');
   assert.equal(st({ received: true, sold: true, sale: getPaid, now: AFTER }), 'awaiting_payout');
   assert.equal(st({ received: true, sold: true, sale: complete, now: AFTER }), 'paid_out');
@@ -87,6 +91,45 @@ test('a status set by hand holds while the facts stay as they were, then goes', 
   const behind = S.ticketStatus({ received: true, sold: true, sale: complete, pin: 'awaiting_payout', pinnedOver: 'paid_out', now: AFTER });
   assert.deepEqual([behind.key, behind.pinned], ['awaiting_payout', true], 'a pin can hold a ticket back (viagogo says paid, nothing came)');
   assert.equal(S.ticketStatus({ received: true, pin: 'nonsense', pinnedOver: 'ready' }).key, 'ready', 'an unknown pin is ignored');
+});
+
+test('a ticket has come: its PDF (even one deleted since), or a mobile transfer said received', () => {
+  assert.equal(S.isReceived({ filePath: 'u/p/1.pdf' }), true);
+  assert.equal(S.isReceived({ fileGoneAt: 1 }), true, 'deleted 7 days after its event: it still came');
+  assert.equal(S.isReceived({ receivedAt: 1 }), true);
+  assert.equal(S.isReceived({ delivery: 'mobile', filePath: 'u/p/1.pdf' }), false, 'a mobile transfer comes when you say so');
+  assert.equal(S.isReceived({ delivery: 'mobile', receivedAt: 1 }), true);
+  assert.equal(S.isReceived({}), false);
+  assert.equal(S.isReceived(null), false);
+});
+
+test('when an event is, read from text: viagogo dates, month first, the coming year', () => {
+  const now = at(2026, 11, 27, 12);
+  assert.equal(S.eventTime('Shqiperi - Finlande - November 12, 2026, 8:45 PM - Air Albania Stadium', now), at(2026, 11, 12, 20, 45));
+  assert.equal(S.eventTime('2026-12-01 20:45', now), at(2026, 12, 1, 20, 45));
+  assert.equal(S.eventTime('Sat 14 Nov', now), at(2026, 11, 14), 'no year: this year, two weeks past');
+  assert.equal(S.eventTime('Mon 5 Jan', now), at(2027, 1, 5), 'more than 60 days past: next year');
+  assert.equal(S.eventTime('Senidah Cair', now), null);
+  assert.equal(S.infoTime({ date: '2026-12-01', time: '19:00' }), at(2026, 12, 1, 19));
+  assert.equal(S.infoTime({ date: '2026-12-01' }), at(2026, 12, 1), 'the day alone: midnight');
+  assert.equal(S.infoTime({}), null);
+});
+
+test('when each tracked event is: its title first, else your first listing or sale on it with a date', () => {
+  const now = at(2026, 11, 27, 12);
+  const events = [
+    { key: 'a', title: 'Shqiperi - Finlande - November 12, 2026, 8:45 PM', date: '' },
+    { key: 'b', title: 'Senidah Cair', date: '' },
+    { key: 'c', title: 'Nobody listed', date: '' }
+  ];
+  const dated = [
+    { eventKey: 'a', userId: 'me', when: '2026-11-13 21:00' },
+    { eventKey: 'b', userId: 'me', when: '' },
+    { eventKey: 'b', userId: 'me', when: '2026-12-05 20:00' },
+    { eventKey: 'c', userId: 'them', when: '2026-12-06 20:00' }
+  ];
+  assert.deepEqual(S.eventTimes(events, dated, 'me', now), { a: at(2026, 11, 12, 20, 45), b: at(2026, 12, 5, 20) },
+    'a teammate\'s listing says nothing about yours');
 });
 
 test('counts add up', () => {

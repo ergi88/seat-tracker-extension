@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Seat Tracker",
-  "version": "7.8.0",
+  "version": "7.9.0",
   "description": "Read-only seat availability tracker for eBileta, eFinity and Posttick: client requests, blocks of adjacent seats, desktop and phone alerts.",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "unlimitedStorage", "alarms", "notifications"],
@@ -156,6 +156,7 @@
         "core/viagogo.js",
         "core/market.js",
         "core/sales.js",
+        "core/stages.js",
         "core/lastsales.js",
         "core/team.js",
         "ui/components.js",

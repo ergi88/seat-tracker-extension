@@ -17,6 +17,10 @@
     { key: 'newEvent', title: 'New event', label: 'New event on a site', priority: 4, tags: ['calendar'], desktop: true, phone: true },
     { key: 'sectorsOpen', title: 'Sectors on sale', label: 'A sector with no seats now has some', priority: 5, tags: ['unlock'], desktop: true, phone: true },
     { key: 'teamNote', title: 'Message from the team', label: 'Message from a teammate', priority: 4, tags: ['speech_balloon'], desktop: true, phone: true },
+    /* about the tickets you bought (core/ticketalerts.js): yours alone */
+    { key: 'noTickets', title: 'No tickets yet', label: 'Tickets not here yet, 7 and 2 days before the event', priority: 4, tags: ['tickets'], desktop: true, phone: true },
+    { key: 'reservedLong', title: 'Reservation not confirmed', label: 'A reservation not confirmed after 48 hours', priority: 4, tags: ['hourglass'], desktop: true, phone: true },
+    { key: 'takeOff', title: 'Take it off', label: 'A sold ticket still on another listing', priority: 5, tags: ['no_entry'], desktop: true, phone: true },
     { key: 'summary', title: 'Summary', label: 'Summary', priority: 2, tags: ['clipboard'], desktop: false, phone: true }
   ];
 

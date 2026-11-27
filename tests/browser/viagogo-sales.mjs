@@ -4,7 +4,8 @@
  * endpoint (shaped as captured on 2026-10-04, pages counted from 1, buyer
  * fields included), with a stand-in for the service worker.
  * Checks the full scan, that no buyer data leaves the page, the grouping by
- * event and section, the profit, a typed buy price, and that "Scan new
+ * event and section, the profit, a typed buy price, each sale's stage
+ * (Awaiting payout, Paid out) and how many are at each, and that "Scan new
  * sales" stops at what is already saved.
  *
  *   node tests/browser/viagogo-sales.mjs
@@ -85,7 +86,8 @@ const STUB = `(() => {
     const sales = Object.values(window.__saved).map(s => {
       const buy = s.buyPrice ? { amount: s.buyPrice, currency: s.buyCurrency, source: 'typed on the section' }
         : s.section === 'N105' ? { amount: 2000, currency: 'ALL', source: 'typed on the listing' } : null;
-      return Object.assign({}, s, { buy, money: Object.assign(SK.sales.saleMoney(s, buy, rates), { rateDay: '2026-10-04' }) });
+      return Object.assign({}, s, { buy, money: Object.assign(SK.sales.saleMoney(s, buy, rates), { rateDay: '2026-10-04' }),
+        stage: SK.stages.saleStage(s, { eventAt: SK.stages.eventTime(s.when), deposited: false }) });
     });
     return { auth: { signedIn: true, email: 'you@example.com' }, settings: SK.settings.normalize({}),
       sites: SK.siteList().map(x => ({ id: x.id, label: x.label, can: x.can, pages: x.pages, badges: x.badges, pushSelectors: x.pushSelectors })),
@@ -229,7 +231,7 @@ async function openTab(b) {
 
 
 const FILES = ['core/util.js', 'core/rules.js', 'core/registry.js', 'core/settings.js', 'core/profit.js', 'core/help.js',
-  'sites/ebileta.js', 'sites/efinity.js', 'sites/posttick.js', 'core/viagogo.js', 'core/market.js', 'core/sales.js', 'core/team.js',
+  'sites/ebileta.js', 'sites/efinity.js', 'sites/posttick.js', 'core/viagogo.js', 'core/market.js', 'core/sales.js', 'core/stages.js', 'core/team.js',
   'ui/components.js', 'content/shell.js', 'content/sites/viagogo.js'];
 const R = `(() => { const h = document.getElementById('sk-host-viagogo'); return h && h.shadowRoot; })()`;
 const text = (t, sel) => t.eval(`(() => { const r = ${R}; const n = r && r.querySelector(${JSON.stringify(sel)}); return n ? n.innerText : null; })()`);
@@ -268,6 +270,8 @@ async function load(t) {
     expect(/10 tickets · 3 sales/.test(events[0]) && /\+4,200 L/.test(events[0]) && /sold \$252\.00 · spent 12,000 L \(2 of 3 sales\) · you get 16,200 L/.test(events[0]),
       'with tickets, sales, profit, what it sold for in $, what it cost and what you get (spent + profit), per event', events[0]);
     expect(/Tue, 06 Oct 2026 · 20:45 · last sale Sun, 04 Oct 2026/.test(events[0]), 'the event date and the last sale are written out', events[0]);
+    expect(/Awaiting payout 1 sale Paid out 2 sales$/i.test(events[0]) && /Paid out 20 sales$/i.test(events[1]),
+      'each event counts its sales at each stage: the event is over, one not paid out yet', events);
     const titles = await t.eval(`[...${R}.querySelectorAll('.sl-event .detail span')].slice(0, 2).map(x => x.title)`);
     expect(titles[0] === 'When the event takes place' && /newest sale/.test(titles[1]), 'and each says what it is on hover', titles);
 
@@ -279,6 +283,9 @@ async function load(t) {
     const s102 = await until(() => t.eval(`(() => { const s = ${R}.querySelector('.sl-sec.open'); return s ? s.innerText.replace(/\\s+/g, ' ') : null; })()`), 3000);
     expect(!!s102 && /30 Sep\b/.test(s102) && /#655666275 · no buy price/.test(s102) && /\$90\.00/.test(s102) && /1 with no buy price/.test(s102),
       'S102 lists its sale and asks for a buy price', s102);
+    const pill = await t.eval(`(() => { const p = ${R}.querySelector('.sl-sec.open .sl-sales .pill'); return p ? [p.textContent, p.className, p.title] : null; })()`);
+    expect(!!pill && pill[0] === 'Paid out' && /stg-accent/.test(pill[1]) && /PayPal/.test(pill[2]),
+      'its sale shows its stage: Paid out (viagogo says Complete), and what that means on hover', pill);
     await t.eval(`(() => {
       const box = ${R}.querySelector('.sl-sec.open .sl-buy');
       const i = box.querySelector('input'); i.value = '1500';

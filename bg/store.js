@@ -27,7 +27,8 @@ const LOCAL_DEFAULTS = {
   lastAlertId: -1,
   meta: { lastError: '', lastSyncAt: 0, lastScanAt: 0 },
   throttle: {},
-  pushLog: []          // [{ at, type, who, ok, reason }] — why the last phone pushes did or did not arrive
+  pushLog: [],         // [{ at, type, who, ok, reason }] — why the last phone pushes did or did not arrive
+  ticketAlertsSent: {} // "<userId>:<alert key>" -> when this PC claimed it (bg/alerts.js tickets): asked about once
 
 };
 
@@ -52,6 +53,9 @@ const EMPTY_MIRROR = {
   purchases: {},       // id -> this person's purchase { accountId, eventKey, requestId, sectorId, qty, price, spentAll, orderRef, … }
   deposits: {},        // id -> this person's payout that reached the bank { receivedOn, currency, amount, amountAll, rate, bank }
   depositSales: [],    // [{ depositId, saleId }]: the sales each deposit paid
+  reservations: {},    // id -> this person's reservation on a listing { listingId, tickets, seats, confirmedAt } (a buyer viagogo is checking)
+  tickets: {},         // id -> this person's ticket { purchaseId, row, seat, saleId, reservationId, delivery, receivedAt, filePath, … }
+  ticketLinks: [],     // [{ listingId, ticketId }]: the tickets each of this person's listings holds
   sectorPrices: {},    // eventKey -> sectorId -> { amount, currency } — the team's price list, typed in the app
   lastSales: {},       // id -> a sale viagogo's "just sold" toast showed on a sell page (the team's)
   fingerprints: {}

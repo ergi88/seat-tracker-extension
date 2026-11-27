@@ -127,6 +127,15 @@ const cas = () => as(B, `update public.request_state set status = 'LOW', version
 ok((await cas()).rows.length === 1 && (await cas()).rows.length === 0, 'one status change is recorded once, whichever PC gets there first');
 const handle = () => as(A, `insert into public.handled_commands (id, user_id) values ('cmd-1', '${A}') on conflict do nothing returning id`);
 ok((await handle()).rows.length === 1 && (await handle()).rows.length === 0, 'a phone command is handled once');
+const once = () => as(A, `insert into public.handled_commands (id, user_id) values ('once:${A}:notix:ebileta:2153:7', '${A}') on conflict do nothing returning id`);
+ok((await once()).rows.length === 1 && (await once()).rows.length === 0, 'an alert about your tickets is sent once, whichever PC finds it');
+await db.query(`update public.handled_commands set handled_at = now() - interval '10 days'`);
+await db.query(`insert into public.handled_commands (id, user_id, handled_at) values ('once:old', '${A}', now() - interval '61 days')`);
+await db.query('select public.cleanup_old()');
+const handledKept = (await db.query('select id from public.handled_commands order by id')).rows.map(r => r.id);
+ok(handledKept.length === 1 && handledKept[0].startsWith('once:') && handledKept[0] !== 'once:old',
+  'cleanup forgets handled commands after 2 days, but keeps a sent alert about your tickets for 60', handledKept);
+await db.query('delete from public.handled_commands');
 
 console.log('\n== viagogo listings: payout private, price shared');
 await as(A, `insert into public.listings (listing_id, user_id, event_key, sector_id, section, price, payout, tickets, currency)
@@ -262,6 +271,36 @@ await db.exec(SCHEMA);
 ok((await as(A, `select received_at from public.tickets where id = 't4'`)).rows[0].received_at !== null, 'running schema.sql again: a ticket with its PDF counts as come');
 ok((await as(A, `select received_at from public.tickets where id = 't2'`)).rows[0].received_at === null, 'one with no PDF yet does not');
 await as(A, `update public.tickets set file_path = null, received_at = null where id = 't4'`);
+
+console.log('\n== reservations: a buyer viagogo is still checking');
+const resv = (who, id, listing, n, seats = '') => as(who, 'insert into public.reservations (id, listing_id, tickets, seats) values ($1, $2, $3, $4)', [id, listing, n, seats]);
+await resv(A, 'rz1', '14000000001', 2, '2-3');
+await as(A, `update public.tickets set reservation_id = 'rz1' where id in ('t2', 't3')`);
+ok((await as(A, `select count(*)::int n from public.tickets where reservation_id = 'rz1'`)).rows[0].n === 2, 'a reservation holds the tickets picked for it');
+ok((await as(B, 'select * from public.reservations')).rows.length === 0, 'a teammate sees none');
+ok(/listing_not_yours|row-level security/.test(await err(resv(B, 'rzb', '14000000001', 1))), 'nobody reserves on someone else\'s listing');
+await resv(B, 'rzB', '14100000001', 1);
+ok(/reservation_not_yours/.test(await err(as(A, `update public.tickets set reservation_id = 'rzB' where id = 't4'`))), 'a ticket goes only on its owner\'s reservation');
+ok((await as(A, `select public.confirm_reservation('rz1') s`)).rows[0].s === null, 'confirmed with no sale read yet: it waits for its sale');
+ok((await as(A, `select confirmed_at from public.reservations where id = 'rz1'`)).rows[0].confirmed_at !== null, 'and says when it was confirmed');
+await as(A, `insert into public.sales (sale_id, user_id, listing_id, tickets, sold_on) values ('7002', $1, '14000000001', 2, current_date)`, [A]);
+const joined = (await as(A, `select id, sale_id, reservation_id from public.tickets where id in ('t2', 't3') order by id`)).rows;
+ok(joined.every(t => t.sale_id === '7002' && t.reservation_id === null), 'its sale read: the tickets go onto it', joined);
+ok((await as(A, `select count(*)::int n from public.reservations where id = 'rz1'`)).rows[0].n === 0, 'and the reservation goes');
+/* two confirmed reservations of one ticket each on a listing, one sale of one: which? the app asks */
+await resv(A, 'rz2', '14000000002', 1);
+await resv(A, 'rz3', '14000000002', 1);
+await as(A, `select public.confirm_reservation('rz2'), public.confirm_reservation('rz3')`);
+await as(A, `insert into public.sales (sale_id, user_id, listing_id, tickets, sold_on) values ('7003', $1, '14000000002', 1, current_date)`, [A]);
+ok((await as(A, `select count(*)::int n from public.reservations where id in ('rz2', 'rz3')`)).rows[0].n === 2, 'two reservations one sale could be: neither joins on its own');
+ok((await as(A, `select public.join_reservation('rz2', '7003') j`)).rows[0].j === true, 'joined when you say which');
+/* cancel: no trace, the tickets are free again */
+await as(A, `update public.tickets set reservation_id = 'rz3' where id = 't4'`);
+await as(A, `delete from public.reservations where id = 'rz3'`);
+ok((await as(A, `select reservation_id from public.tickets where id = 't4'`)).rows[0].reservation_id === null, 'cancelled: the reservation is gone and its ticket holds nothing');
+ok(/\|0$/.test((await as(A, 'select public.sync_status() s')).rows[0].s.reservations), 'sync status counts your reservations');
+await as(A, `delete from public.sales where sale_id in ('7002', '7003')`);
+await as(B, `delete from public.reservations where id = 'rzB'`);
 
 const sst = (await as(A, 'select public.sync_status() s')).rows[0].s;
 const sbt = (await as(B, 'select public.sync_status() s')).rows[0].s;

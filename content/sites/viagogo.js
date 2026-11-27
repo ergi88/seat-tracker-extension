@@ -1432,8 +1432,8 @@
       sg.title = 'In lek: what the tickets cost you, plus the profit, is what this sale pays you';
       li.append(sg);
     }
-    if (!SK.sales.isPaid(s)) li.append(ui.el('span', 'pill st-LOW', 'not paid yet'));
-    else if (m.deposited) li.append(ui.el('span', 'pill st-OK', 'in bank'));
+    /* where its money stands (core/stages.js): Sold, Awaiting payout, Paid out, Done */
+    if (s.stage) li.append(ui.stagePill(s.stage));
     li.title = [
       `Sale ${s.id}${s.listingId ? ` · listing ${s.listingId}` : ''}${s.requestNum ? ` · request #${s.requestNum}` : ''}`,
       s.buy ? `Bought at ${P.formatMoney(s.buy.amount, s.buy.currency)} a ticket (${s.buy.source})` : 'No buy price known',
@@ -1527,6 +1527,11 @@
     last.title = 'The day of the newest sale for this event';
     when.append(last);
     li.append(when, sumLine(ev.total));
+    /* how many of its sales are at each stage */
+    const counts = {};
+    for (const s of ev.sections.flatMap(x => x.sales)) if (s.stage) counts[s.stage] = (counts[s.stage] || 0) + 1;
+    const stages = ui.stageCounts(counts, n => `${n} sale${n === 1 ? '' : 's'}`);
+    if (stages) li.append(stages);
     if (open) li.append(eventBody(ctx, ev));
     return li;
   }

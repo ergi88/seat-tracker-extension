@@ -480,6 +480,25 @@
 .sk-app .buyline input { width: 84px; padding: 2px 6px; font-size: 11px; }
 .sk-app .buyline select { padding: 2px 4px; font-size: 11px; }
 .sk-app .buyline .note { margin: 0; font-size: 10.5px; }
+/* a buyer viagogo is checking, on a listing card: Reserved, or Sold once confirmed */
+.sk-app .resline { display: grid; gap: 4px; margin-top: 5px; justify-items: start; }
+.sk-app .resitem { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px; }
+.sk-app .resitem .restext { color: var(--muted); }
+.sk-app .resform { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.sk-app .resform input { width: 110px; padding: 2px 6px; font-size: 11px; }
+.sk-app .resform input[type=number] { width: 52px; }
+.sk-app .pill.res-open { color: var(--bought); background: var(--boughtbg); }
+.sk-app .pill.res-ok { color: var(--ok); background: var(--okbg); }
+/* where a sale's money stands (core/stages.js): a pill in its stage's tone, with a count */
+.sk-app .pill.stg-ok { color: var(--ok); background: var(--okbg); }
+.sk-app .pill.stg-low { color: var(--low); background: var(--lowbg); }
+.sk-app .pill.stg-bad { color: var(--bad); background: var(--badbg); }
+.sk-app .pill.stg-none { color: var(--none); background: var(--nonebg); }
+.sk-app .pill.stg-accent { color: var(--accent); background: var(--accent-soft); }
+.sk-app .pill.stg-bought { color: var(--bought); background: var(--boughtbg); }
+.sk-app .stageline { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: 5px; font-size: 11px; }
+.sk-app .stageitem { display: inline-flex; align-items: center; gap: 4px; }
+.sk-app .stageitem .stagen { color: var(--muted); }
 
 /* ---------------- listing cards: striped by viagogo's own status --- */
 .sk-app .req.listing { border-left-color: var(--s-none); }

@@ -81,10 +81,11 @@ purchases:
 
 | | |
 |---|---|
-| `tickets` | one per page of a PDF: its lot, page, sector as printed, row, seat, ticket number (once per person), price with the fee, when the event is, the viagogo sale that took it, and where its PDF is |
+| `tickets` | one per page of a PDF: its lot, page, sector as printed, row, seat, ticket number (once per person), price with the fee, when the event is, the viagogo sale that took it, and where its PDF is. Your PCs read yours (and `listing_tickets`) for the alerts about your tickets |
 | `listing_tickets` | which tickets a listing holds; kept once the listing ends, as history |
 | `purchases.frozen` | the lots there were when tickets came: they stay counted, read-only (set once, never again), but for their Spent |
 | `purchases.spent_all`, `spent_auto` | what the bank charged for the lot, in lek; auto (at the rate of the day it was bought) until typed in the app |
+| `reservations`, `tickets.reservation_id` | a buyer viagogo is still checking, marked by hand on a listing: how many tickets, their seats, when you confirmed it; and the tickets picked for it. Confirming joins it to its sale when that is read and is the only sale it can be (`confirm_reservation`, and a trigger on new sales); otherwise it waits, or the app asks which. Cancelling deletes it |
 | `tickets.delivery`, `received_at` | how a ticket comes, `pdf` (it has come once its PDF is attached) or `mobile` (a mobile transfer: once you say so in the app), and when it came. A lot bought without its PDF has its tickets from the start, with no file |
 | `tickets.status_pin`, `pinned_over` | a ticket's status set by hand in the app, and the worked-out one it was set over; the pin is cleared once the facts change. Only the 10 statuses below are accepted |
 
@@ -237,6 +238,16 @@ own timer.
 - **Listings · Events** — the popup opens on **Listings**, your viagogo listings with Active, Pending,
   Deactivated and Sold chips, **Scan listings** and **Read my listings ↗**. **Events** is one click away
   (remembered per PC).
+- **Reserved…** on an active or pending listing's card: viagogo asked you to reserve tickets while it
+  checks a buyer. Type how many (and the seats, if known) and **Save**. The card then shows it, with
+  **Confirm** (viagogo said yes: the tickets are sold; they join the sale once My Sales is read) and
+  **Cancel** (the sale fell through: nothing kept, the tickets are listed again). Which tickets it holds
+  is picked in the app; see [the app's Reservations](../seat-tracker-app/README.md#reservations).
+- **Sales** on a listing's card that has sold: how many of its tickets are at each stage of their
+  money, each in its colour: **Sold** (the event has not happened yet), **Awaiting payout** (it is
+  over, 3 hours after it starts, and viagogo has not paid), **Paid out** (viagogo says Complete: in
+  PayPal), **Done** (the money reached the bank: a deposit in the app). The same stages as the app's
+  Money tab.
 - **Events** — one group per event with requests: number, title, site, worst-status dot, last scan,
   a red line if its scans are failing. **↻** scans it, **⋯** has Scan all, Open event page and Archive.
 - **Request cards** — the status colour is the stripe on the left. First row: `#n`, sector, price
@@ -350,10 +361,12 @@ Buyer names, emails and phone numbers in that list are never saved.
   section** or **All sales**.
 - **Every sale** shows its date, section, tickets, row, sale number, buy price, what it sold for and
   its profit with its own win rate: `+2,640 L (x1.4)`. Under it: `spent 6,000 + profit +2,640 = you
-  get 8,640 L`. A sale viagogo has not paid yet is marked **not paid yet** (viagogo's cards say
-  "Completed" either way, so this comes from the sale's status). A sale whose money reached your bank
-  (a deposit, recorded in the app) is marked **in bank** and counts what the bank credited for it; the
-  others count at today's rate. Hover a sale for the rate.
+  get 8,640 L`. Each sale shows where its money stands: **Sold** (its event has not happened yet),
+  **Awaiting payout** (the event is over and viagogo has not paid; viagogo's cards say "Completed"
+  either way, so this comes from the sale's status), **Paid out** (viagogo says Complete: in PayPal)
+  or **Done** (its money reached your bank: a deposit, recorded in the app). A Done sale counts what
+  the bank credited for it; the others count at today's rate. Hover a sale for the rate, and its
+  stage for what it means. Each event counts its sales at each stage under its totals.
 - **Buy price.** It comes from the listing, else the request, else the sector's price. A section
   whose sales have none gets a box: type one price and **Save** puts it on all of them.
 - **Seats.** A sale keeps viagogo's Seats (`1-4`), so the app can mark which of a listing's tickets
@@ -625,6 +638,13 @@ Desktop and phone (ntfy) for: **Tickets available now**, **Running low**, **Back
 own desktop and phone switch, plus quiet hours, mute, cooldown, confirmation of "No longer fillable"
 and action buttons. **[NOTIFICATIONS.md](NOTIFICATIONS.md)** explains every case.
 
+Three more are about the tickets you bought: **No tickets yet** (a ticket with no PDF, or a mobile
+transfer not received, 7 days and again 2 days before its event; louder when some are already
+listed or sold), **Reservation not confirmed** (48 hours after you marked it) and **Take it off** (a
+sold ticket still on another active listing). Your tickets are yours alone, so a PC works these out
+only for whoever is signed in on it, every 10 minutes, and each goes out once. Quiet hours and mute
+hold them until they end.
+
 Alerts are **per person**: about your own requests, to your own ntfy topic, on the PCs where you are
 signed in — once each, no matter which PC ran the scan.
 
@@ -687,15 +707,15 @@ the popup and the sidebar all work unchanged. The contract is documented at the 
 
 | Command | What it checks |
 |---|---|
-| `node --test tests/*.test.js` | also: ticket statuses (each stage from its fact, when an event is over, badges, a status set by hand holding until the facts move), the checkout drawer's tickets (one per seat, waiting for its PDF), sales, last sales and their scan, face values, the update link, removed eBileta sectors, saved-scan rows · viagogo market: your pinned listings kept out of other sections, ranks with ties, verdicts, sold listings, sections without a map id, event page addresses · seat rules: the status table from the original spec (both row-ordering modes), aisles, backwards seat numbers, rotated rows, price filters · viagogo: dates as each site writes them, matching a listing to its event and sector, remembered pairings · money: prices as the sites write them, eBileta's price block, rates per day, buy price per site, the profit example above · eBileta Kosovo: its own site next to eBileta, its sector list (from real markup), seat pages with euro prices |
-| `node tests/db/schema.test.mjs` | `supabase/schema.sql` on a real Postgres: runs twice without losing data, members only, numbering, leases, "alert once", commands handled once, listings, sales, accounts, purchases and saved scans private to their owner, saved scans kept to the newest 2, team prices without payouts, tickets (frozen lots set once, a ticket number once per person, a status set by hand only from the known ones and always with what it was set over, a ticket coming as a PDF or a mobile transfer and counting as come once its PDF is in, one active listing per market, no more unsold tickets than a listing lists, links and PDFs their owner's alone, a private bucket with a folder each), cascades |
+| `node --test tests/*.test.js` | also: ticket statuses (each stage from its fact, when an event is over, badges, a status set by hand holding until the facts move, a reservation reserved and then sold once confirmed, a ticket come, when an event is from its title or your listings), the alerts about your tickets (none 7 days and 2 days before, worse when listed or sold, counted and frozen lots, a reservation unconfirmed after 48 hours, a sold ticket still on another listing, never from a guess, and what each says), the checkout drawer's tickets (one per seat, waiting for its PDF), sales, last sales and their scan, face values, the update link, removed eBileta sectors, saved-scan rows · viagogo market: your pinned listings kept out of other sections, ranks with ties, verdicts, sold listings, sections without a map id, event page addresses · seat rules: the status table from the original spec (both row-ordering modes), aisles, backwards seat numbers, rotated rows, price filters · viagogo: dates as each site writes them, matching a listing to its event and sector, remembered pairings · money: prices as the sites write them, eBileta's price block, rates per day, buy price per site, the profit example above · eBileta Kosovo: its own site next to eBileta, its sector list (from real markup), seat pages with euro prices |
+| `node tests/db/schema.test.mjs` | `supabase/schema.sql` on a real Postgres: runs twice without losing data, members only, numbering, leases, "alert once", commands handled once (an alert about your tickets kept sent for 60 days, a command for 2), listings, sales, accounts, purchases and saved scans private to their owner, saved scans kept to the newest 2, team prices without payouts, tickets (frozen lots set once, a ticket number once per person, a status set by hand only from the known ones and always with what it was set over, a ticket coming as a PDF or a mobile transfer and counting as come once its PDF is in, reservations (their owner's alone, joined to their sale when it is read and is the only one, left for you to pick otherwise, gone without a trace when cancelled), one active listing per market, no more unsold tickets than a listing lists, links and PDFs their owner's alone, a private bucket with a folder each), cascades |
 | `node tests/browser/ebileta-ks.mjs` | eBileta Kosovo's event page built from its real markup: the sidebar on `listaEventiPub.do`, Track this event as idSM 1215 with its 14 sectors, pills and map badges (`L2|2`), the sidebar's sector search, a sector opening on `eu.ebileta.al` |
 | `node tests/browser/viagogo-event.mjs` | the event drawer on a stand-in event page built from real viagogo markup: Scan off while a section is picked, one scan pressing "Show more" to the end with no reloads, every listing sorted into its section, ranks, gaps, verdicts, eBileta seats, profit, graphs, the table's search box, By price and its filters, stands, Save scan (the newest 2, here and in the app), Changes, deleting and Reset, a scan deleted in the app dropped here, the Last sales tab, Stop, and a refresh clearing the scan on screen |
 | `node --test tests/preview.test.js` | reading a stadium before tracking it: it goes through the same adapter, refuses on an event that is already tracked, skips the sold-out sectors, writes nothing at all to Supabase, and the map's three badges say wanted / free-but-unasked / nothing, with silence for a sector nobody has read |
 | `node --test tests/pcnotify.test.js` | desktop alerts per PC: a fresh PC is silent for every kind and says why, "follow mine" reproduces the old behaviour exactly, "its own" overrides the account in both directions, per-PC quiet hours still let "tickets available now" through, and both places a notification can appear ask the same question |
 | `node --test tests/act.test.js` | the write boundary: only the two named files may act on a ticket site (a third one appearing fails the test), holding seats is off by default and per PC, and the acting file has no fetch, no submit and no way to run without a real click |
-| `node tests/browser/popup.mjs` | the popup opened in Chrome against a stand-in service worker: it loads without throwing (a name used before it is declared, or a `core/*.js` missing from its script tags, only shows when someone opens it), every listing is drawn in its own group, the Active / Pending / Deactivated / Sold chips count and filter, the search box narrows and says which reason it found nothing, **Revalidate all** asks for a sweep, and Events still works |
-| `node tests/browser/viagogo-sales.mjs` | the sales page in Chrome against a stand-in of `/sales/getSales`: the full scan, no buyer data leaving the page, sales grouped by event and section, the profit and what you get, a buy price typed on a section, and Scan new sales stopping at what is already saved |
+| `node tests/browser/popup.mjs` | the popup opened in Chrome against a stand-in service worker: it loads without throwing (a name used before it is declared, or a `core/*.js` missing from its script tags, only shows when someone opens it), every listing is drawn in its own group, the Active / Pending / Deactivated / Sold chips count and filter, the search box narrows and says which reason it found nothing, **Revalidate all** asks for a sweep, a reservation shows on its listing with Confirm and Cancel (Reserved… only on active and pending ones), a listing's sales counted by stage in their colours, and Events still works |
+| `node tests/browser/viagogo-sales.mjs` | the sales page in Chrome against a stand-in of `/sales/getSales`: the full scan, no buyer data leaving the page, sales grouped by event and section, the profit and what you get, a buy price typed on a section, each sale's stage and each event's count of them, and Scan new sales stopping at what is already saved |
 | `node tests/browser/viagogo-lastsale.mjs` | a sell page in Chrome: the "just sold" toast read and saved, the price split per ticket, the same toast again skipped and a different one saved, Reload this tab staying on across reloads, and viagogo's bot page switching it off |
 | `node tests/browser/ebileta-checkout.mjs` | eBileta's confirmation page in Chrome (captured, personal data replaced): every ticket's names filled from an account, one ticket edited, the order added as a purchase with each of its tickets (sector, row, seat, price), a new buying account saved |
 | `node tests/browser/viagogo-listings.mjs` | the listings page in Chrome with a real viagogo card: every field read, the line added to each card with the team's price and **Delete request** (which asks first and touches nothing on viagogo), the sidebar totals, **Add as request**, and a tab left open while the extension reloads shutting down without errors |
@@ -725,7 +745,10 @@ core/
   team.js                  what the team lists per section, and who else is in it
   sales.js                 viagogo sales: reading getSales, buy price, profit per sale and in total
   lastsales.js             viagogo's "just sold" toast: reading it, same-sale rule, price text, the scan plan
-  stages.js                ticket statuses: each ticket's, a sale's money stage, when an event is over
+  stages.js                ticket statuses: each ticket's, a sale's money stage, when an event is
+                           (and when it is over), whether a ticket has come
+  ticketalerts.js          the alerts about your tickets: none yet near the event, a reservation
+                           left unconfirmed, a sold ticket still listed (and what each says)
   face.js                  face values handed from a ticket site to the viagogo drawer
   update.js                the shared update link and version compare
 sites/

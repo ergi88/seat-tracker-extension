@@ -14,7 +14,7 @@
 'use strict';
 
 importScripts(
-  'core/util.js', 'core/rules.js', 'core/registry.js', 'core/settings.js', 'core/config.js', 'core/viagogo.js', 'core/profit.js', 'core/team.js', 'core/market.js', 'core/sales.js', 'core/lastsales.js', 'core/face.js', 'core/update.js',
+  'core/util.js', 'core/rules.js', 'core/registry.js', 'core/settings.js', 'core/config.js', 'core/viagogo.js', 'core/profit.js', 'core/team.js', 'core/market.js', 'core/sales.js', 'core/stages.js', 'core/ticketalerts.js', 'core/lastsales.js', 'core/face.js', 'core/update.js',
   'sites/ebileta.js', 'sites/efinity.js', 'sites/posttick.js',
   'bg/net.js', 'bg/store.js', 'bg/supabase.js', 'bg/remote.js',
   'bg/events.js', 'bg/alerts.js', 'bg/notify.js', 'bg/commands.js', 'bg/importer.js', 'bg/fx.js', 'bg/lastsalescan.js'
@@ -212,6 +212,8 @@ async function doTick() {
     await showNewAlerts(res.alerts);
     await remindUpdate();
     await Commands.poll();
+    /* the alerts about your tickets, every 10 minutes (bg/alerts.js tickets) */
+    if (ticks % 20 === 3) { try { await Alerts.tickets(); } catch (e) { /* next time */ } }
     if (ticks % 240 === 1) {
       try { if (await Remote.claimLease('cleanup', 23 * 3600, device.id)) await Remote.cleanup(); } catch (e) { /* not important */ }
     }
@@ -605,6 +607,7 @@ async function buildState(msg) {
   }));
 
   /* this person's viagogo listings, joined with their requests */
+  const sales = salesOf(m, me);
   const listings = Object.values(m.listings).filter(l => l.userId === me).map(l => {
     const r = m.requests.find(x => x.userId === me && x.listing === l.id) || null;
     const ev = m.events[r ? r.eventKey : l.eventKey] || null;
@@ -628,6 +631,10 @@ async function buildState(msg) {
       state: listingState(l, r, ev),
       statusKind: SK.viagogo.listingStatus(l.status),
       options: r && !r.done ? evalOf(m, r).options : null,
+      /* buyers viagogo is checking (or said yes to), marked on it by hand, oldest first */
+      reservations: Object.values(m.reservations || {}).filter(x => x.listingId === l.id && x.userId === me).sort((a, b) => a.createdAt - b.createdAt),
+      /* its sales, and where each one's money stands (core/stages.js) */
+      sales: sales.filter(s => s.listingId === l.id).map(s => ({ id: s.id, tickets: s.tickets, soldOn: s.soldOn, stage: s.stage })),
       buy, money: moneyOf(m, l, buy)
     };
   });
@@ -650,7 +657,7 @@ async function buildState(msg) {
   return Object.assign(base, {
     events, requests, scans, catalog, devices, listings, teamPrices, teamRequests, team,
     compares: await liveCompares(),
-    sales: salesOf(m, me),
+    sales,
     lastSales: lastSalesOf(m),
     lastSaleScan: await LastSaleScan.status(m).catch(() => null),
     update: updateState(m),
@@ -700,11 +707,16 @@ function sectorPriceOf(m, ev, sec, me) {
  * typed in the app, settled); until then, at today's rate (live). The buy
  * price is found as for a listing: typed on the listing, then the request's,
  * then the sector's price — and last, a price typed on the sale's section in
- * the sales sidebar. With no lot behind it, it is an estimate: today's rate too. */
+ * the sales sidebar. With no lot behind it, it is an estimate: today's rate too.
+ * Each sale's stage (core/stages.js): sold, awaiting payout once its event
+ * is over, paid out once viagogo says Complete, done once a deposit pays it;
+ * its event's time found as the app finds it. */
 function salesOf(m, me) {
-  const live = ratesAt(m, Date.now());
+  const now = Date.now();
+  const live = ratesAt(m, now);
   const mine = Object.values(m.sales || {}).filter(s => s.userId === me);
   const got = SK.sales.depositShares(m.deposits, m.depositSales, mine);
+  const times = SK.stages.eventTimes(Object.values(m.events), [...Object.values(m.listings), ...mine], me, now);
   return mine.map(s => {
     const l = s.listingId ? m.listings[s.listingId] : null;
     const r = s.listingId ? m.requests.find(x => x.userId === me && x.listing === s.listingId) : null;
@@ -713,8 +725,10 @@ function salesOf(m, me) {
     let buy = ev && sectorId ? buyOf(m, r, ev, sectorId, l) : l ? SK.profit.buyPriceOf({ listing: l }) : null;
     if (!buy && Number(s.buyPrice) > 0) buy = { amount: s.buyPrice, currency: s.buyCurrency || 'ALL', source: 'typed on the section' };
     const g = got[s.id] || null;
+    const eventAt = ev && times[ev.key] !== undefined ? times[ev.key] : SK.stages.eventTime(s.when, now);
     return Object.assign({}, s, {
       eventNum: ev ? ev.num : null, eventTitle: ev ? SK.util.eventInfo(ev).name : '', requestNum: r ? r.num : null,
+      stage: SK.stages.saleStage(s, { eventAt, deposited: !!g, now }),
       buy, money: Object.assign(SK.sales.saleMoney(s, buy, live.rates, g), { rateDay: g ? g.on : live.day })
     });
   });
@@ -1022,6 +1036,9 @@ const HANDLERS = {
   pageScan: msg => me().then(() => savePageScan(msg.site, String(msg.sectorId), msg.seats, { idSM: msg.idSM, price: msg.price, name: msg.name, tipoM: msg.tipoM })),
   saveListings: msg => me().then(m => saveListings(msg.items, m.meId)),
   setListingTrack: msg => me().then(m => setListingTrack(msg.id, msg.track, m.meId)),
+  reserveListing: msg => me().then(m => reserveListing(msg.id, msg.tickets, msg.seats, m.meId)),
+  confirmReservation: msg => me().then(m => confirmReservation(msg.id, m.meId)),
+  cancelReservation: msg => me().then(m => cancelReservation(msg.id, m.meId)),
   savePurchases: msg => me().then(m => savePurchases(msg.items, m.meId)),
   saveBuyAccount: msg => me().then(m => saveBuyAccount(msg.account, m.meId)),
   setListingBuy: msg => me().then(m => setListingBuy(msg.id, msg.price, msg.currency, m.meId)),

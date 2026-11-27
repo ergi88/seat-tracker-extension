@@ -30,10 +30,13 @@
  * change, either way, the pin goes.
  *
  * An event is over 3 hours after it starts. One known only by its day
- * (a time of midnight) is over when that day ends.
+ * (a time of midnight) is over when that day ends. When it starts:
+ * eventTime reads it from text (a title, the date viagogo gives), and
+ * eventTimes finds each tracked event's, the same on a PC and in the app.
  *
- * Uses SK.sales.isPaid: load core/sales.js first. Pure, no chrome.* and no
- * DOM: the app copies it (src/shared/sk/core-stages.js).
+ * Uses SK.sales.isPaid, SK.viagogo.parseWhen and SK.util.eventInfo: load
+ * core/util.js, core/viagogo.js and core/sales.js first. Pure, no chrome.*
+ * and no DOM: the app copies it (src/shared/sk/core-stages.js).
  * ------------------------------------------------------------------ */
 (function (root) {
   'use strict';
@@ -86,6 +89,75 @@
     return o !== null && (now === undefined ? Date.now() : now) >= o;
   };
 
+  /* The ticket itself has come: its PDF is in (or was: one deleted after its
+   * event still came), or it is a mobile transfer you said came. A PDF ticket
+   * from before received_at counts as come once it has (or had) its file.
+   * t = { receivedAt, delivery, filePath, fileGoneAt } */
+  const isReceived = t => !!t && (!!t.receivedAt || (t.delivery !== 'mobile' && !!(t.filePath || t.fileGoneAt)));
+
+  /* ---------------- when an event is --------------------------------- */
+
+  const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+  /* SK.viagogo.parseWhen knows "14 Nov", "14.11.2026" and "2026-11-14", but
+   * not the month first, which is how eBileta writes it in its titles:
+   * "Shqiperi - Finlande - November 12, 2026, 8:45 PM - Air Albania Stadium".
+   * This adds that, and keeps parseWhen's answer otherwise. */
+  function readDate(text) {
+    const w = SK.viagogo.parseWhen(text);
+    if (w.month) return w;
+    const m = /(?:^|[^a-z])(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?!\d)/i.exec(text);
+    if (!m || +m[2] < 1 || +m[2] > 31) return w;
+    return { day: +m[2], month: MONTHS[m[1].toLowerCase()], minutes: w.minutes };
+  }
+
+  /* When an event is, as a time, from text: the date as the viagogo listings
+   * page writes it ("2026-11-14 20:45", "Sat 14 Nov", "22.10.2026"...) or
+   * month first ("November 12, 2026"), in the year the text names; with no
+   * year, the coming one (a date more than 60 days past is next year's).
+   * -> ms, or null when the text holds no date */
+  function eventTime(text, now) {
+    if (now === undefined) now = Date.now();
+    text = String(text || '');
+    const w = readDate(text);
+    if (!w.month) return null;
+    const y = /(?:^|\D)(20\d{2})(?!\d)/.exec(text);
+    const h = w.minutes === null ? 0 : Math.floor(w.minutes / 60), mi = w.minutes === null ? 0 : w.minutes % 60;
+    const at = year => new Date(year, w.month - 1, w.day, h, mi).getTime();
+    if (y) return at(+y[1]);
+    const t = at(new Date(now).getFullYear());
+    return t < now - 60 * 86400000 ? at(new Date(now).getFullYear() + 1) : t;
+  }
+
+  /* The day and time split from a title (SK.util.splitEventTitle: { date:
+   * 'YYYY-MM-DD', time: 'HH:MM' }) as a time, or null when it has no date. */
+  function infoTime(info) {
+    const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec((info && info.date) || '');
+    if (!d) return null;
+    const t = /^(\d{2}):(\d{2})$/.exec(info.time || '');
+    return new Date(+d[1], +d[2] - 1, +d[3], t ? +t[1] : 0, t ? +t[2] : 0).getTime();
+  }
+
+  /* When each tracked event is. Sites rarely fill its date (eBileta and
+   * Posttick put it in the title, eFinity nowhere), so: its title and date
+   * together; else the date viagogo gives on the first listing or sale of
+   * yours linked to it. dated: listings and sales ({ eventKey, userId, when })
+   * -> { [eventKey]: ms } */
+  function eventTimes(events, dated, me, now) {
+    const out = {};
+    for (const x of dated || []) {
+      if (!x || !x.eventKey || x.userId !== me || out[x.eventKey]) continue;
+      const t = eventTime(x.when, now);
+      if (t !== null) out[x.eventKey] = t;
+    }
+    for (const ev of events || []) {
+      const fromInfo = infoTime(SK.util.eventInfo(ev));
+      const t = fromInfo !== null ? fromInfo : eventTime(`${ev.date || ''} ${ev.title || ''}`, now);
+      if (t !== null) out[ev.key] = t;
+    }
+    return out;
+  }
+
   /* Where a viagogo sale's money stands. o = { eventAt, deposited, now }:
    * deposited = the sale is in a deposit (its lek reached the bank).
    * -> 'sold' | 'awaiting_payout' | 'paid_out' | 'done' */
@@ -99,11 +171,13 @@
 
   /* f = { received, listed, reserved, sold, sale, deposited, elsewhere, unsold, eventAt, now }
    *   sold: a viagogo sale took it (sale: that sale, when known)
-   *   elsewhere: the sale outside viagogo that took it ({ lek }: what it brought, all its tickets) */
+   *   elsewhere: the sale outside viagogo that took it ({ lek }: what it brought, all its tickets)
+   *   reserved: 'open' (the buyer is being checked) or 'confirmed' (viagogo
+   *     said yes: sold, until its sale is read and takes it) */
   function workedOut(f) {
     if (f.sale) return saleStage(f.sale, f);
     if (f.elsewhere) return Number(f.elsewhere.lek) > 0 ? 'done' : 'sold_elsewhere';
-    if (f.sold) return saleStage({}, f);
+    if (f.sold || f.reserved === 'confirmed') return saleStage({}, f);
     if (f.reserved) return 'reserved';
     if (f.unsold) return 'unsold';
     if (f.listed) return 'listed';
@@ -133,7 +207,10 @@
     return out;
   }
 
-  SK.stages = { STAGES, KEYS, GROUPS, BADGES, DELIVERY, MONEY, OVER_AFTER, stage, label, tone, keysOf, overAt, isOver, saleStage, ticketStatus, addCounts };
+  SK.stages = {
+    STAGES, KEYS, GROUPS, BADGES, DELIVERY, MONEY, OVER_AFTER, stage, label, tone, keysOf, overAt, isOver,
+    isReceived, eventTime, infoTime, eventTimes, saleStage, ticketStatus, addCounts
+  };
 
   if (typeof module === 'object' && module.exports) module.exports = SK;
 })(globalThis);

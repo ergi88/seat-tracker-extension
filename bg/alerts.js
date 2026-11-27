@@ -13,6 +13,10 @@
  * The state row has a version. A PC only alerts when its update of that
  * version succeeds, so two PCs looking at the same change alert once.
  * Each alert goes to the request's owner, with the owner's settings.
+ *
+ * tickets(): the alerts about the tickets you bought (no tickets near the
+ * event, a reservation left unconfirmed, a sold ticket still listed), every
+ * 10 minutes after a sync.
  * ------------------------------------------------------------------ */
 'use strict';
 
@@ -230,5 +234,62 @@ const Alerts = (() => {
     });
   }
 
-  return { afterScan, health, newEvents, sectorsOpen, summary, teamMessage };
+  /* About the tickets you bought (core/ticketalerts.js): still not here 7
+   * and 2 days before their event, a reservation not confirmed after 48
+   * hours, a sold ticket still on another listing. Tickets are their owner's
+   * alone, so a PC tells only the person signed in on it. Each goes out once,
+   * whichever of their PCs finds it first (the shared handled list, kept 60
+   * days for these). While that person's quiet hours or mute are on they wait
+   * rather than be spent on a silent phone; a kind switched off for both
+   * desktop and phone waits too, and comes if it is switched back on. This PC
+   * remembers what it already claimed, so it asks the database only about new ones. */
+  const TICKET_SENT_KEEP = 60 * 24 * 3600000;
+
+  async function tickets() {
+    const m = await model();
+    const me = m.meId;
+    if (!me || !m.profiles[me]) return { sent: 0 };
+    const cfg = m.settingsFor(me);
+    const now = Date.now();
+    if ((m.profiles[me].snoozeUntil || 0) > now) return { sent: 0, waiting: 'mute' };
+    if (cfg.quiet.enabled && U.inDailyWindow(new Date(now), cfg.quiet.from, cfg.quiet.to)) return { sent: 0, waiting: 'quiet hours' };
+    const T = SK.ticketAlerts;
+    const x = {
+      purchases: m.purchases, tickets: m.tickets, links: m.ticketLinks, listings: m.listings, sales: m.sales,
+      reservations: m.reservations, events: m.events, me, now
+    };
+    const found = [...T.noTickets(x), ...T.reservedLong(x), ...T.takeOff(x)];
+    const { ticketAlertsSent } = await readLocal(['ticketAlertsSent']);
+    const known = Object.assign({}, ticketAlertsSent);
+    const fresh = [];
+    const claimed = {};
+    for (const a of found) {
+      const k = `${me}:${a.key}`;
+      if (known[k]) continue;
+      const route = cfg.notify[a.type] || {};
+      if (!route.desktop && !route.phone) continue;
+      let won;
+      try { won = await Remote.markHandled('once:' + k, me); } catch (e) { break; }   // unreachable: the rest next time
+      if (won) fresh.push(a);
+      claimed[k] = now;
+    }
+    await withLocal(s => {
+      const sent = Object.assign({}, s.ticketAlertsSent, claimed);
+      for (const k of Object.keys(sent)) if (now - sent[k] > TICKET_SENT_KEEP) delete sent[k];
+      return patch({ ticketAlertsSent: sent });
+    }, ['ticketAlertsSent']);
+
+    const send = async (type, items) => {
+      const msg = T.message(type, items);
+      await Notify.send(type, { userId: me, title: msg.title, message: msg.message, click: msg.click || undefined, clickLabel: msg.clickLabel, priority: msg.priority });
+    };
+    for (const a of fresh) if (a.type !== 'takeOff') await send(a.type, [a]);
+    /* the tickets to take off, one notification per event */
+    const off = new Map();
+    for (const a of fresh) if (a.type === 'takeOff') off.set(a.group, (off.get(a.group) || []).concat(a));
+    for (const items of off.values()) await send('takeOff', items);
+    return { sent: fresh.length };
+  }
+
+  return { afterScan, health, newEvents, sectorsOpen, summary, teamMessage, tickets };
 })();

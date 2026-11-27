@@ -329,6 +329,10 @@
       const ul = ui.el('ul', 'reqs');
       for (const l of ui.sortListings(items, st.settings.listSort)) {
         ul.append(ui.listingCard(l, ctx, {
+          /* buyers viagogo is checking: Reserved…, Confirm, Cancel */
+          reservations: true,
+          /* its sales' stages: Sold, Awaiting payout, Paid out, Done */
+          stages: true,
           onOpen: x => ctx.openUrl(U.viagogoUrl(x.id)),
           onBuy: async (x, price, currency) => {
             try {

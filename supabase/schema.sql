@@ -572,6 +572,11 @@ begin
       raise exception 'sale_not_yours: sale % is not yours', new.sale_id;
     end if;
   end if;
+  if new.reservation_id is not null and (tg_op = 'INSERT' or new.reservation_id is distinct from old.reservation_id) then
+    if not exists (select 1 from public.reservations where id = new.reservation_id and user_id = new.user_id) then
+      raise exception 'reservation_not_yours: reservation % is not yours', new.reservation_id;
+    end if;
+  end if;
   return new;
 end $$;
 
@@ -721,6 +726,119 @@ alter table public.tickets add constraint tickets_status_pin_check check (
     status_pin  in ('awaiting_tickets', 'ready', 'listed', 'reserved', 'sold', 'awaiting_payout', 'paid_out', 'done', 'sold_elsewhere', 'unsold') and
     pinned_over in ('awaiting_tickets', 'ready', 'listed', 'reserved', 'sold', 'awaiting_payout', 'paid_out', 'done', 'sold_elsewhere', 'unsold')));
 
+-- ------------------------------------------------------------ reservations
+-- A buyer viagogo is still checking ("Please reserve these tickets while we
+-- run our final checks on the buyer"). Marked by hand, in the app or the
+-- popup, on the listing: how many of its tickets, and their seats when
+-- known. Their owner's alone. While it stands, its tickets are Reserved.
+-- Confirm (viagogo said yes) makes them Sold at once; once the sale itself is
+-- read they go onto it and the reservation goes. Cancel deletes it, leaving
+-- no trace: its tickets are listed again (viagogo puts them back on the
+-- same listing).
+--   tickets       how many it holds: some of a listing's tickets, or all
+--   seats         its seats as viagogo gives them ("1-2"), when known
+--   confirmed_at  when you confirmed it (null: the buyer is still checked)
+-- tickets.reservation_id: the tickets picked for it. None picked: the
+-- listing's unsold tickets in page order stand for it, as for a sale.
+create table if not exists public.reservations (
+  id           text primary key,
+  user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  listing_id   text not null references public.listings (listing_id) on delete cascade,
+  tickets      int not null check (tickets > 0),
+  seats        text not null default '',
+  confirmed_at timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists reservations_listing on public.reservations (listing_id);
+alter table public.tickets add column if not exists reservation_id text references public.reservations (id) on delete set null;
+
+-- a reservation goes on its owner's own listing
+create or replace function public.check_reservation() returns trigger
+language plpgsql as $$
+declare l record;
+begin
+  select user_id into l from public.listings where listing_id = new.listing_id;
+  if not found or l.user_id <> new.user_id then
+    raise exception 'listing_not_yours: listing % is not yours', new.listing_id;
+  end if;
+  return new;
+end $$;
+
+-- The sales a reservation may have become: on its listing, of as many
+-- tickets, sold no earlier than the day before it was made, and none of
+-- their tickets picked yet.
+create or replace function public.reservation_sales(p_id text) returns setof text
+language sql stable as $$
+  select s.sale_id from public.reservations r
+  join public.sales s on s.listing_id = r.listing_id and s.user_id = r.user_id and s.tickets = r.tickets
+  where r.id = p_id
+    and (s.sold_on is null or s.sold_on >= (r.created_at at time zone 'UTC')::date - 1)
+    and not exists (select 1 from public.tickets t where t.sale_id = s.sale_id)
+  order by s.sale_id
+$$;
+
+-- The one sale a confirmed reservation became: only when there is exactly
+-- one, and no other confirmed reservation of its size on its listing could
+-- be it. Otherwise null, and the app asks which.
+create or replace function public.reservation_match(p_id text) returns text
+language plpgsql stable as $$
+declare r record; n int; s text;
+begin
+  select listing_id, user_id, tickets into r from public.reservations where id = p_id and confirmed_at is not null;
+  if not found then return null; end if;
+  select count(*) into n from public.reservations x
+    where x.listing_id = r.listing_id and x.user_id = r.user_id and x.tickets = r.tickets and x.confirmed_at is not null;
+  if n <> 1 then return null; end if;
+  select count(*), min(m.sale_id) into n, s from public.reservation_sales(p_id) as m(sale_id);
+  return case when n = 1 then s end;
+end $$;
+
+-- A reservation joined to its sale: the tickets picked for it go onto the
+-- sale, and the reservation goes (the ones not picked are the sale's own
+-- guess, from the same listing, in the same order).
+create or replace function public.join_reservation(p_id text, p_sale text) returns boolean
+language plpgsql as $$
+declare r record;
+begin
+  select user_id into r from public.reservations where id = p_id;
+  if not found then return false; end if;
+  if not exists (select 1 from public.sales where sale_id = p_sale and user_id = r.user_id) then
+    raise exception 'sale_not_yours: sale % is not yours', p_sale;
+  end if;
+  update public.tickets set sale_id = p_sale, reservation_id = null where reservation_id = p_id;
+  delete from public.reservations where id = p_id;
+  return true;
+end $$;
+
+-- Confirm: viagogo said yes. Its tickets are Sold from now; when its sale is
+-- read already (and is the only one it can be), they go onto it at once.
+-- -> that sale, or null (it waits for its sale)
+create or replace function public.confirm_reservation(p_id text) returns text
+language plpgsql as $$
+declare s text;
+begin
+  update public.reservations set confirmed_at = coalesce(confirmed_at, now()) where id = p_id;
+  if not found then return null; end if;
+  s := public.reservation_match(p_id);
+  if s is not null then perform public.join_reservation(p_id, s); end if;
+  return s;
+end $$;
+
+-- a sale read on viagogo, of a listing with a confirmed reservation: the
+-- reservation joins it when it is the one sale it can be
+create or replace function public.join_reserved_sale() returns trigger
+language plpgsql as $$
+declare r record;
+begin
+  if new.listing_id is null then return new; end if;
+  for r in select id from public.reservations
+    where listing_id = new.listing_id and user_id = new.user_id and tickets = new.tickets and confirmed_at is not null loop
+    if public.reservation_match(r.id) = new.sale_id then perform public.join_reservation(r.id, new.sale_id); end if;
+  end loop;
+  return new;
+end $$;
+
 -- How a ticket comes, and whether it has come. A lot bought without its PDF
 -- has its tickets from the start (made in the app, or by the extension's
 -- eBileta checkout drawer with their sector, row and seat): no file yet.
@@ -770,6 +888,14 @@ drop trigger if exists deposits_check on public.deposits;
 create trigger deposits_check before update on public.deposits
   for each row execute function public.check_deposit();
 
+drop trigger if exists reservations_check on public.reservations;
+create trigger reservations_check before insert or update on public.reservations
+  for each row execute function public.check_reservation();
+
+drop trigger if exists sales_join_reservation on public.sales;
+create trigger sales_join_reservation after insert or update of listing_id, tickets on public.sales
+  for each row execute function public.join_reserved_sale();
+
 drop trigger if exists vg_scans_keep_two on public.vg_scans;
 create trigger vg_scans_keep_two after insert on public.vg_scans
   for each row execute function public.keep_two_vg_scans();
@@ -785,7 +911,7 @@ create trigger requests_num before insert on public.requests
 do $$
 declare t text;
 begin
-  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales'] loop
+  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales', 'reservations'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before update on public.%I for each row execute function public.touch_updated_at()', t);
   end loop;
@@ -839,6 +965,7 @@ returns jsonb language sql stable as $$
     'ticketLinks', (select concat(max(updated_at), '|', count(*)) from public.listing_tickets where user_id = auth.uid()),
     'deposits', (select concat(max(updated_at), '|', count(*)) from public.deposits where user_id = auth.uid()),
     'depositSales', (select concat(max(updated_at), '|', count(*)) from public.deposit_sales where user_id = auth.uid()),
+    'reservations', (select concat(max(updated_at), '|', count(*)) from public.reservations where user_id = auth.uid()),
     'alerts',   (select coalesce(max(id), 0) from public.alerts where user_id = auth.uid())
   )
 $$;
@@ -846,7 +973,11 @@ $$;
 create or replace function public.cleanup_old()
 returns void language sql as $$
   delete from public.alerts where created_at < now() - interval '7 days';
-  delete from public.handled_commands where handled_at < now() - interval '2 days';
+  -- a phone command is handled within minutes; an alert about your tickets
+  -- ("once:…", bg/alerts.js tickets) is sent once, so it is kept long enough
+  -- to stay sent: no tickets 7 days before an event must not come back at 5
+  delete from public.handled_commands where handled_at < now() - interval '2 days' and id not like 'once:%';
+  delete from public.handled_commands where handled_at < now() - interval '60 days';
   delete from public.leases where expires_at < now() - interval '1 day';
   -- exchange rates are kept for good: one small row a day, and any day a lot
   -- was bought on or a payout came may need its rate
@@ -887,12 +1018,12 @@ create policy own_sales on public.sales for all to authenticated
   with check (public.is_member() and user_id = auth.uid());
 
 -- buying accounts (names, birthdays), purchases, their tickets and the listings
--- those are on, saved viagogo scans, and deposits with the sales they paid:
--- their owner's alone
+-- those are on, saved viagogo scans, deposits with the sales they paid, and
+-- reservations: their owner's alone
 do $$
 declare t text;
 begin
-  foreach t in array array['buy_accounts', 'purchases', 'vg_scans', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales'] loop
+  foreach t in array array['buy_accounts', 'purchases', 'vg_scans', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales', 'reservations'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format('create policy own_rows on public.%I for all to authenticated using (public.is_member() and user_id = auth.uid()) with check (public.is_member() and user_id = auth.uid())', t);
@@ -911,7 +1042,9 @@ grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.is_member(), public.claim_lease(text, text, int), public.release_lease(text, text),
   public.sync_status(), public.cleanup_old(), public.touch_updated_at(), public.assign_event_num(),
   public.assign_request_num(), public.check_ticket(), public.check_listing_ticket(),
-  public.check_deposit_sale(), public.check_deposit() to authenticated;
+  public.check_deposit_sale(), public.check_deposit(), public.check_reservation(), public.reservation_sales(text),
+  public.reservation_match(text), public.join_reservation(text, text), public.confirm_reservation(text),
+  public.join_reserved_sale() to authenticated;
 
 -- ------------------------------------------------------------ the team
 -- Who is on the team lives in supabase/team.sql, kept off GitHub because it

@@ -1478,6 +1478,43 @@ async function setListingTrack(id, track, userId) {
   return out;
 }
 
+/* ---------------- reservations ---------------------------------------
+ * viagogo: "Please reserve these tickets while we run our final checks on
+ * the buyer". Marked by hand on the listing: how many tickets, their seats
+ * when known. Confirm (viagogo said yes) makes them sold; the database then
+ * joins it to its sale once that is read (schema.sql confirm_reservation).
+ * Cancel deletes it: no trace, the tickets are listed again. Which tickets
+ * it holds is picked in the app (this PC keeps no tickets). */
+async function reserveListing(id, tickets, seats, userId) {
+  if (!userId) throw new Error('Sign in first.');
+  const m = await model();
+  const l = m.listings[String(id)];
+  if (!l) throw new Error('That listing is not saved yet — read your viagogo listings page first.');
+  if (l.userId !== userId) throw new Error('That listing belongs to someone else.');
+  const n = SK.util.clampInt(tickets, 1, 1, 99);
+  return Remote.insertReservation({ id: SK.util.newId('r'), user_id: userId, listing_id: l.id, tickets: n, seats: String(seats || '').trim().slice(0, 80) });
+}
+
+/* a reservation of yours, as this PC last read it */
+async function ownReservation(id, userId) {
+  const r = ((await model()).reservations || {})[String(id)];
+  if (!r) throw new Error('That reservation is gone: refresh.');
+  if (r.userId !== userId) throw new Error('That reservation belongs to someone else.');
+  return r;
+}
+
+/* -> the sale it joined, or null (it waits for its sale, sold already) */
+async function confirmReservation(id, userId) {
+  const r = await ownReservation(id, userId);
+  return Remote.confirmReservation(r.id);
+}
+
+async function cancelReservation(id, userId) {
+  const r = await ownReservation(id, userId);
+  await Remote.deleteReservation(r.id);
+  return true;
+}
+
 /* ================================================================== */
 /* buy tracker                                                         */
 /* ================================================================== */

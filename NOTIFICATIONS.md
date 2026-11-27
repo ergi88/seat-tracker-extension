@@ -42,7 +42,13 @@ A request belongs to one person, and so does every alert about it.
 | Scan failing · Scan working again | everyone with an open request in that event |
 | New event on a site | everyone on the team |
 | Summary | each person, with their own requests only |
+| No tickets yet · Reservation not confirmed · Take it off | the person who bought those tickets |
 | Command answers · Test | whoever sent it |
+
+**Your tickets' alerts come from your own PCs.** The tickets you bought, their listings and
+reservations are yours alone (a teammate's PC cannot read them), so these three are worked out only
+on a PC where **you** are signed in, every 10 minutes after it syncs. If all of your PCs are off,
+they wait until one is on.
 
 **Sent once, whichever PC scanned.** Any PC may run the scan. Before alerting, the PC records the new
 status in the shared database; if another PC recorded the same change a moment earlier, it stays
@@ -103,6 +109,9 @@ notification, their mute and their quiet hours all apply.
 | **New event on a site** | the new-event check finds an unseen event | on | on | 4 | the event | — |
 | **A sector with no seats now has some** | a sweep finds a sector that was empty and is on sale, and nobody has a request in it | on | on | 5 (max) | the event | — |
 | **Message from a teammate** | a teammate typed one and pressed send | on | on | 4 | the event, when the message is about one | — |
+| **No tickets yet** | a ticket you bought still has no PDF (or a mobile transfer is not received) 7 days, and again 2 days, before its event | on | on | 4 (5 when some are listed or sold) | — | — |
+| **Reservation not confirmed** | a reservation you marked is still not confirmed 48 hours later | on | on | 4 | the listing | Viagogo listing (phone) |
+| **Take it off** | a ticket you sold is still on another active listing | on | on | 5 (max) | the listing | Viagogo listing(s) (phone) |
 | **Summary** | after every auto-check, or once a day | off | on | 2 | seat map² | — |
 | Command answer | you sent a phone command | — | always | 3 (4 if failed) | — | — |
 | Test | you pressed a Test button | once | once | 3 | — | — |
@@ -304,6 +313,67 @@ Shqiperi - Andorra · 12 Nov 20:45 · Air Albania Stadium
 - The **very first** check only records what is already listed, so installing does not send a flood.
 - Several new events in one check share one notification.
 
+### No tickets yet
+
+**When:** a ticket you bought has still not come (no PDF on it yet, or a mobile transfer you have not
+marked **Received**) **7 days** before its event, and again **2 days** before. One notification per
+event at each step; a lot bought 3 days before the event gets only the 2-day one.
+
+```
+Sold, no tickets yet · in 2 days
+Albania - Serbia · Tue 1 Dec 20:45
+W105 · 2 no PDF yet, 1 not received (1 sold or reserved, 1 listed)
+Attach the PDF, or tap Received for a mobile transfer, on the lot in the app.
+```
+
+| Title | When | Phone priority |
+|---|---|---|
+| **No tickets yet** | none of the missing tickets is on sale yet | 4 |
+| **Listed, no tickets yet** | some of them are on an active listing | 5 |
+| **Sold, no tickets yet** | some of them are sold, or held for a buyer (reserved) | 5 |
+
+- **What counts:** the tickets of your lots with no PDF yet, and mobile transfers not received. Not
+  the ones sold outside viagogo. A frozen lot (from before PDFs were kept) never counts. A lot with no
+  tickets yet goes by its numbers; it says "(listed)" or "(its listing sold)" from the listings its
+  tickets were put on.
+- **When the event is:** the time printed on the ticket, else the one in the event's title, else the
+  date viagogo gives on your listing or sale for it, as the app works it out. No time known: no alert.
+- **What the PC knows is what is recorded.** A ticket is listed, reserved or sold when its listing, its
+  reservation or its sale says so. A sale that never said which tickets it took leaves them as they
+  were, so where the app guesses "sold" the PC may send the milder title.
+
+### Reservation not confirmed
+
+**When:** a reservation you marked on a listing (a buyer viagogo is checking; see the app's
+**Reservations**) is still not confirmed **48 hours** after you marked it. viagogo has decided by then:
+check its email or My Sales, then **Confirm** or **Cancel** it on the listing. Once per reservation.
+
+```
+Reservation not confirmed · W105
+Albania - Serbia · Tue 1 Dec 20:45
+W105 · row 5 · listing 13990000001 · 2 tickets · seats 5-6
+Reserved 2 days ago, still not confirmed. Check viagogo's email or My Sales, then Confirm or Cancel it on the listing (the popup or the app).
+```
+
+Tapping it, or **Viagogo listing** on the phone, opens the listing on my.viagogo.com.
+
+### Take it off
+
+**When:** a ticket you sold (by a viagogo sale, or outside viagogo) is still on **another** active
+listing: another market, or a second listing of the same seats. It could sell twice. One notification
+per event, a line per ticket; each ticket and listing is told once. Nothing after the event.
+
+```
+Take it off · 1 ticket
+Albania - Serbia
+W105 row 5 seat 1: sold (sale 656096343), still on listing 13990000002 (Active)
+Take it off that listing on viagogo, or it can sell twice.
+```
+
+- Tapping it opens that listing (your listings page when there are several).
+- Only tickets whose sale says which ones it took: a sale that never said is no guess here. The app's
+  **Take it off** list in Inventory shows the same tickets.
+
 ### Summary
 
 Every open request, grouped by event.
@@ -353,6 +423,10 @@ The card in the popup, the sidebar and the number on the toolbar icon keep showi
 long as it lasts. If you want a regular reminder of everything, turn on **Summary** (after each
 auto-check, or once a day).
 
+**The alerts about your tickets go out once each**: **No tickets yet** once at 7 days and once at 2
+days, **Reservation not confirmed** once per reservation, **Take it off** once per ticket and listing.
+They are never repeated, whichever of your PCs is on; each one is remembered for 60 days.
+
 ---
 
 ## What never notifies
@@ -376,9 +450,9 @@ auto-check, or once a day).
 |---|---|---|
 | **Desktop / Phone per type** | see the table above | switches that one notification on that channel |
 | **Summary** | off | off · after every auto-check · once a day at a time |
-| **Quiet hours** | off, 23:00–08:00 | no **phone** pushes in that window; desktop still shows |
+| **Quiet hours** | off, 23:00–08:00 | no **phone** pushes in that window; desktop still shows. The alerts about your tickets wait for the end of it instead, so they still reach the phone |
 | **Let "Tickets available now" through** | on | that one alert ignores quiet hours |
-| **Mute** (bell in the popup, or `mute 60`) | — | silences **every alert on both channels** for a while; command answers still arrive |
+| **Mute** (bell in the popup, or `mute 60`) | — | silences **every alert on both channels** for a while; command answers still arrive. The alerts about your tickets wait until it ends |
 | **Cooldown** | 10 min | the same alert for the same request is not repeated within this time (0 = off) |
 | **Confirm "No longer fillable"** | on | needs two scans in a row before that alert |
 | **Buttons on notifications** | on | adds the buttons described [below](#buttons) |
@@ -492,7 +566,8 @@ Command answers about one request — `get req=3`, `scan req=3`, `add …` — a
 ## Privacy
 
 - A notification contains the event title, sector codes, ticket counts, statuses and option counts —
-  **never client names**.
+  **never client names**. The alerts about your tickets also give their rows, seats, and listing and
+  sale numbers.
 - Anyone who knows your **ntfy topic** can read your notifications; anyone who knows your **shortcuts
   topic** can change your requests. Use long, hard-to-guess names, and different ones for the two.
 - Topics are per person. Each member has their own pair, and nobody else's alerts arrive on yours.

@@ -57,10 +57,14 @@ const STUB = `(() => {
     const listings = [
       Object.assign({}, base, { id: '13988951528', section: 'E106', code: 'E106', status: 'Active', statusKind: 'active',
         track: 'auto', state: 'tracked', options: 12, requestId: 'r7', num: 7, reqStatus: 'OK',
-        eventKey: ev.key, eventNum: 1, eventTitle: ev.title, sectorId: '445' }),
+        eventKey: ev.key, eventNum: 1, eventTitle: ev.title, sectorId: '445',
+        /* two of its sales, and where their money stands */
+        sales: [{ id: '700001', tickets: 2, soldOn: '2026-10-01', stage: 'awaiting_payout' }, { id: '700002', tickets: 1, soldOn: '2026-09-20', stage: 'done' }] }),
       Object.assign({}, base, { id: '13990000001', section: 'J2', code: 'J2', status: 'Pending', statusKind: 'pending',
         track: 'auto', state: 'linkable', options: null, requestId: null, num: null, reqStatus: null,
-        eventKey: ev.key, eventNum: 1, eventTitle: ev.title }),
+        eventKey: ev.key, eventNum: 1, eventTitle: ev.title,
+        /* a buyer viagogo is checking, marked by hand */
+        reservations: [{ id: 'rz1', listingId: '13990000001', tickets: 2, seats: '3-4', confirmedAt: 0, createdAt: Date.now() - 3600000 }] }),
       Object.assign({}, base, { id: '13977001122', section: 'B12', code: 'B12', status: 'Deactivated', statusKind: 'deactivated',
         track: 'auto', state: 'untracked', options: null, requestId: null, num: null, reqStatus: null,
         eventKey: null, eventNum: null, eventTitle: '', title: 'Shqiperi - Serbia', vgEventId: '161780042',
@@ -108,6 +112,7 @@ const STUB = `(() => {
       sendMessage(msg, cb) {
         (window.__log = window.__log || []).push(JSON.parse(JSON.stringify(msg)));
         if (msg.type === 'deleteRequests') window.__deleted = (window.__deleted || []).concat(msg.ids);
+        window.__sent = (window.__sent || []).concat([JSON.parse(JSON.stringify(msg))]);
         setTimeout(() => cb({ ok: true, data: msg.type === 'state' ? window.__state() : msg.type === 'deleteDevices' ? { removed: msg.ids.length } : null }), 10);
       }
     },
@@ -301,6 +306,22 @@ const READ = `window.__t = {
     const opened = await t.eval('window.__opened');
     expect(opened.length === 1 && opened[0].endsWith('#sk-scan'), 'and it opens the listings page asking for a scan', opened);
     expect(t.errors.length === 0, 'still nothing thrown', t.errors);
+
+    console.log('\n== reservations');
+    const res = await t.eval(`[...document.querySelectorAll('#listings .resitem')].map(x => x.textContent)`);
+    expect(res.length === 1 && /Reserved/.test(res[0]) && /2 tickets · seats 3-4/.test(res[0]) && /Confirm/.test(res[0]) && /Cancel/.test(res[0]),
+      'a reservation shows on its listing, with Confirm and Cancel', res);
+    const marks = await t.eval(`[...document.querySelectorAll('#listings .resline > button')].filter(b => b.textContent === 'Reserved…').length`);
+    expect(marks === 3, 'Reserved… is offered on the active and pending listings only', marks);
+    await t.eval(`[...document.querySelectorAll('#listings .resitem button')].find(b => b.textContent === 'Confirm').click()`);
+    const conf = await until(() => t.eval(`(window.__sent || []).find(m => m.type === 'confirmReservation')`), 2000);
+    expect(conf && conf.id === 'rz1', 'Confirm asks the service worker to confirm that reservation', conf);
+
+    console.log('\n== sale stages');
+    const stages = await t.eval(`[...document.querySelectorAll('#listings .stageline')].map(x => [...x.querySelectorAll('.stageitem')].map(i => [i.querySelector('.pill').textContent, i.querySelector('.stagen').textContent, i.querySelector('.pill').className]))`);
+    expect(stages.length === 1 && JSON.stringify(stages[0].map(x => x.slice(0, 2))) === JSON.stringify([['Awaiting payout', '2 tickets'], ['Done', '1 ticket']])
+      && /stg-low/.test(stages[0][0][2]) && /stg-ok/.test(stages[0][1][2]),
+      'a listing with sales shows how many of its tickets are at each stage, in its colour; one with none shows nothing', stages);
 
     console.log('  screenshot:', await t.shot('popup-listings.png'));
 

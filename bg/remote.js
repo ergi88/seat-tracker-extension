@@ -88,12 +88,32 @@ const Remote = (() => {
   });
   /* spentAll: what the bank charged for the lot, in lek (null: not known);
    * spentAuto: filled at the rate of the day it was bought, not typed */
+  /* assigned: where a lot with no tickets yet put them, typed in the app
+   * ({ listings: { id: qty }, sales: { id: qty }, other: [{ qty, tickets }] });
+   * frozen: one from before PDFs were kept. vgEventId / eventTitle / section:
+   * a lot for a viagogo event nobody tracks. */
   const toPurchase = r => ({
     id: r.id, userId: r.user_id, accountId: r.account_id, eventKey: r.event_key, requestId: r.request_id || null,
     sectorId: r.sector_id || null, qty: Number(r.qty) || 1, price: numOr(r.price), currency: r.currency || 'ALL',
     boughtOn: r.bought_on ? String(r.bought_on).slice(0, 10) : '', orderRef: r.order_ref || '', notes: r.notes || '',
-    spentAll: numOr(r.spent_all), spentAuto: r.spent_auto !== false
+    spentAll: numOr(r.spent_all), spentAuto: r.spent_auto !== false,
+    vgEventId: r.vg_event_id || '', eventTitle: r.event_title || '', section: r.section || '',
+    assigned: r.assigned && typeof r.assigned === 'object' ? r.assigned : {}, frozen: r.frozen === true
   });
+
+  /* a ticket you bought, one per seat (owner-only rows, made in the app or
+   * by the checkout drawer): what the alerts about your tickets read. Has it
+   * come (its PDF, or a mobile transfer said received), the sale that took
+   * it, the reservation it is picked for. */
+  const toTicket = r => ({
+    id: String(r.id), userId: r.user_id, purchaseId: String(r.purchase_id), page: numOr(r.page),
+    sectorText: r.sector_text || '', row: r.row_label || '', seat: r.seat || '', eventAt: time(r.event_at),
+    saleId: r.sale_id ? String(r.sale_id) : null, reservationId: r.reservation_id ? String(r.reservation_id) : null,
+    delivery: r.delivery === 'mobile' ? 'mobile' : 'pdf', receivedAt: time(r.received_at),
+    filePath: r.file_path || '', fileGoneAt: time(r.file_gone_at), createdAt: time(r.created_at)
+  });
+  /* a ticket on a listing (it stays once the listing ends, as history) */
+  const toTicketLink = r => ({ listingId: String(r.listing_id), ticketId: String(r.ticket_id) });
 
   /* a payout that reached the bank, in both currencies, and the sales it paid
    * (owner-only rows, typed in the app) */
@@ -103,6 +123,13 @@ const Remote = (() => {
     bank: r.bank || '', notes: r.notes || ''
   });
   const toDepositSale = r => ({ depositId: String(r.deposit_id), saleId: String(r.sale_id) });
+
+  /* a buyer viagogo is still checking, marked by hand on a listing (owner-only
+   * rows): how many tickets, their seats, and when you confirmed it (0: not yet) */
+  const toReservation = r => ({
+    id: String(r.id), userId: r.user_id, listingId: String(r.listing_id), tickets: Number(r.tickets) || 0,
+    seats: r.seats || '', confirmedAt: time(r.confirmed_at), createdAt: time(r.created_at)
+  });
 
   /* the team's price list: what a ticket costs in one sector, typed in the app */
   const toSectorPrice = r => ({ amount: Number(r.amount), currency: r.currency || 'ALL', updatedAt: time(r.updated_at) });
@@ -163,7 +190,18 @@ const Remote = (() => {
       put: (m, r) => { (m.deposits = m.deposits || {})[r.id] = toDeposit(r); },
       idCol: 'id', keep: (m, ids) => { for (const k of Object.keys(m.deposits || {})) if (!ids.has(k)) delete m.deposits[k]; } },
     { name: 'depositSales', table: 'deposit_sales', select: 'deposit_id,sale_id', optional: true,
-      replace: (m, rows) => { m.depositSales = (rows || []).map(toDepositSale); } }
+      replace: (m, rows) => { m.depositSales = (rows || []).map(toDepositSale); } },
+    /* optional: reservations (a cancelled one is deleted: idCol) */
+    { name: 'reservations', table: 'reservations', ts: 'updated_at', optional: true, clear: m => { m.reservations = {}; },
+      put: (m, r) => { (m.reservations = m.reservations || {})[String(r.id)] = toReservation(r); },
+      idCol: 'id', keep: (m, ids) => { for (const k of Object.keys(m.reservations || {})) if (!ids.has(k)) delete m.reservations[k]; } },
+    /* optional: your tickets and the listings they are on, for the alerts
+     * about them (a deleted ticket goes: idCol; the links come whole) */
+    { name: 'tickets', table: 'tickets', ts: 'updated_at', optional: true, clear: m => { m.tickets = {}; },
+      put: (m, r) => { (m.tickets = m.tickets || {})[String(r.id)] = toTicket(r); },
+      idCol: 'id', keep: (m, ids) => { for (const k of Object.keys(m.tickets || {})) if (!ids.has(k)) delete m.tickets[k]; } },
+    { name: 'ticketLinks', table: 'listing_tickets', select: 'listing_id,ticket_id', optional: true,
+      replace: (m, rows) => { m.ticketLinks = (rows || []).map(toTicketLink); } }
   ];
   const specOf = name => SPECS.find(s => s.name === name);
 
@@ -177,6 +215,9 @@ const Remote = (() => {
     for (const [id, p] of Object.entries(m.purchases || {})) if ((p.eventKey && !m.events[p.eventKey]) || !(m.accounts || {})[p.accountId]) delete m.purchases[id];
     for (const key of Object.keys(m.sectorPrices || {})) if (!m.events[key]) delete m.sectorPrices[key];
     if (m.depositSales) m.depositSales = m.depositSales.filter(k => (m.deposits || {})[k.depositId]);
+    for (const [id, r] of Object.entries(m.reservations || {})) if (!m.listings[r.listingId]) delete m.reservations[id];
+    for (const [id, t] of Object.entries(m.tickets || {})) if (!(m.purchases || {})[t.purchaseId]) delete m.tickets[id];
+    if (m.ticketLinks) m.ticketLinks = m.ticketLinks.filter(k => (m.tickets || {})[k.ticketId]);
   }
 
   async function applyRows(name, rows) {
@@ -340,6 +381,34 @@ const Remote = (() => {
     });
     await applyRows('purchases', out);
     return (out || []).map(toPurchase);
+  }
+
+  /* ---------------- reservations ------------------------------------ */
+
+  /* a buyer viagogo is checking, on a listing of yours */
+  async function insertReservation(row) {
+    const r = first(await Supa.rest('POST', 'reservations', { body: [row], prefer: 'return=representation' }));
+    if (!r) throw new Error('The reservation was not saved.');
+    await applyRows('reservations', [r]);
+    return toReservation(r);
+  }
+
+  /* viagogo said yes: the database joins it to its sale when that is read
+   * already (and is the only one it can be). -> that sale's id, or null */
+  async function confirmReservation(id) {
+    const sale = await Supa.rpc('confirm_reservation', { p_id: String(id) });
+    if (sale) await mutateMirror(m => { delete (m.reservations || {})[String(id)]; });
+    else {
+      const r = first(await Supa.rest('GET', `reservations?${eq('id', String(id))}&select=*`));
+      if (r) await applyRows('reservations', [r]);
+    }
+    return sale || null;
+  }
+
+  /* cancelled: gone, no trace (its tickets hold nothing any more) */
+  async function deleteReservation(id) {
+    await Supa.rest('DELETE', `reservations?${eq('id', String(id))}`, { prefer: 'return=minimal' });
+    await mutateMirror(m => { delete (m.reservations || {})[String(id)]; });
   }
 
   /* the tickets of new lots (the checkout drawer's), no file yet. This PC
@@ -658,7 +727,7 @@ const Remote = (() => {
   return {
     pull, toEvent, toRequest,
     insertEvent, patchEvent, deleteEvent,
-    insertRequest, insertRequests, patchRequest, insertAccount, insertPurchases, insertTickets, deleteRequest, deleteRequests, saveListings, patchListing, patchListings, deleteListings, saveSales, patchSales, insertLastSale, patchLastSale, saveVgScan, listVgScans, deleteVgScan, deleteVgScans, saveFx,
+    insertRequest, insertRequests, patchRequest, insertAccount, insertPurchases, insertTickets, insertReservation, confirmReservation, deleteReservation, deleteRequest, deleteRequests, saveListings, patchListing, patchListings, deleteListings, saveSales, patchSales, insertLastSale, patchLastSale, saveVgScan, listVgScans, deleteVgScan, deleteVgScans, saveFx,
     baselineState, casState, resetState, forgetRequest,
     saveScans, fetchScans, saveHealth,
     claimLease, releaseLease,

@@ -48,7 +48,7 @@ const Notify = (() => {
     const out = [];
     const listing = singleListing(msg);
     if (listing) out.push({ action: 'view', label: 'Viagogo listing', url: listing, clear: true });
-    else if (msg.click) out.push({ action: 'view', label: 'Open map', url: msg.click, clear: true });
+    else if (msg.click) out.push({ action: 'view', label: msg.clickLabel || 'Open map', url: msg.click, clear: true });
     const ev = msg.eventKey && m.events[msg.eventKey];
     if (cfg.cmdTopic && ev) {
       const url = `${cfg.ntfyServer}/${encodeURIComponent(cfg.cmdTopic)}`;
@@ -99,7 +99,8 @@ const Notify = (() => {
     if (!route.phone) push = { ok: false, reason: 'switched off for this kind' };
     else if (!cfg.phoneTopic) push = { ok: false, reason: 'no ntfy topic set' };
     else if (quiet) push = { ok: false, reason: 'quiet hours' };
-    else push = await publish(cfg, { title, message, priority: def.priority, tags: def.tags, click: msg.click, actions: phoneActions(cfg, m, msg) });
+    /* an alert may be more urgent than its kind (msg.priority: a sold ticket with no PDF days before its event) */
+    else push = await publish(cfg, { title, message, priority: msg.priority || def.priority, tags: def.tags, click: msg.click, actions: phoneActions(cfg, m, msg) });
     await notePush(type, userId, push, m);
     return { ok: true, quiet, push };
   }

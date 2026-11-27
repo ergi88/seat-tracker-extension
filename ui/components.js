@@ -871,6 +871,17 @@
     if (l.state === 'tracked' && l.options !== null) detail.append(el('span', null, U.plural(l.options, 'option')));
     li.append(detail);
 
+    /* its sales, and where their money stands: the tickets at each stage */
+    if (o.stages && l.sales && l.sales.length) {
+      const counts = {};
+      for (const s of l.sales) if (s.stage) counts[s.stage] = (counts[s.stage] || 0) + (Number(s.tickets) || 1);
+      const line = stageCounts(counts, n => U.plural(n, 'ticket'));
+      if (line) {
+        line.prepend(el('span', 'buylabel', 'Sales'));
+        li.append(line);
+      }
+    }
+
     /* what these tickets cost, per ticket. Typed here it beats the ticket
      * site's section price, and it is what makes a profit possible at all on
      * an event nobody tracks. */
@@ -886,10 +897,87 @@
     }
     acts.append(trackToggle(l, ctx));
     li.append(acts);
+    if (o.reservations) li.append(reservationRow(l, ctx));
 
     const hint = listingStateHint(l.state);
     if (hint && l.state !== 'tracked') li.append(el('div', 'detail', hint));
     return li;
+  }
+
+  /* Where a sale's money stands (core/stages.js), as a pill in its colour:
+   * Sold, Awaiting payout, Paid out, Done. */
+  const STAGE_HINT = {
+    sold: 'Sold. Its event has not happened yet: 3 hours after it starts, it is awaiting payout.',
+    awaiting_payout: 'Its event is over and viagogo has not paid it out yet.',
+    paid_out: 'viagogo paid it out (Complete): in PayPal, not in the bank yet.',
+    done: 'Its money reached the bank: a deposit in the app pays it.'
+  };
+  function stagePill(key) {
+    const p = el('span', 'pill stg-' + SK.stages.tone(key), SK.stages.label(key));
+    if (STAGE_HINT[key]) p.title = STAGE_HINT[key];
+    return p;
+  }
+  /* { [stage]: n } -> a line of pills with their counts, in the stages'
+   * order (unit(n): "2 tickets"), or null when there are none */
+  function stageCounts(counts, unit) {
+    const keys = SK.stages.KEYS.filter(k => (counts || {})[k] > 0);
+    if (!keys.length) return null;
+    const line = el('div', 'stageline');
+    for (const k of keys) {
+      const item = el('span', 'stageitem');
+      item.append(stagePill(k), el('span', 'stagen', unit ? unit(counts[k]) : String(counts[k])));
+      line.append(item);
+    }
+    return line;
+  }
+
+  /* Buyers viagogo is checking, on a listing card: each reservation (how
+   * many, its seats, since when) with Confirm (viagogo said yes: sold; it
+   * joins its sale once that is read) and Cancel (no trace: the tickets are
+   * listed again); and, on an active listing, "Reserved…" to mark one: how
+   * many tickets and their seats when known. Which tickets it holds is
+   * picked in the app. */
+  function reservationRow(l, ctx) {
+    const wrap = el('div', 'resline');
+    const stop = e => e.stopPropagation();
+    const act = (b, fn, done) => b.addEventListener('click', e => {
+      stop(e);
+      busy(b, async () => { const out = await fn(); ctx.notice(done(out)); await ctx.refresh(true); }, ctx);
+    });
+    for (const r of l.reservations || []) {
+      const line = el('div', 'resitem');
+      const what = `${U.plural(r.tickets, 'ticket')}${r.seats ? ' · seats ' + r.seats : ''}`;
+      line.append(el('span', 'pill ' + (r.confirmedAt ? 'res-ok' : 'res-open'), r.confirmedAt ? 'Sold' : 'Reserved'));
+      line.append(el('span', 'restext', r.confirmedAt ? `${what} · confirmed, waiting for its sale` : `${what} · ${U.ago(r.createdAt)}`));
+      if (!r.confirmedAt) {
+        const ok = button('Confirm', 'mini primary', null, 'viagogo confirmed the buyer: these tickets are sold. They join the sale once a PC reads it on My Sales.');
+        act(ok, () => send('confirmReservation', { id: r.id }), sale => (sale ? `Confirmed: joined sale ${sale}.` : `Confirmed: ${what} sold, waiting for the sale on My Sales.`));
+        line.append(ok);
+      }
+      const no = button('Cancel', 'mini', null, 'The sale fell through: viagogo puts the tickets back on this listing. Nothing of the reservation is kept.');
+      act(no, async () => (confirm(`Cancel the reservation of ${what}? Nothing of it is kept.`) ? send('cancelReservation', { id: r.id }).then(() => true) : false),
+        gone => (gone ? 'Reservation cancelled: the tickets are listed again.' : 'Kept.'));
+      line.append(no);
+      wrap.append(line);
+    }
+    if (['active', 'pending'].includes(l.statusKind)) {
+      const open = button('Reserved…', 'mini', null, 'viagogo asked you to reserve tickets of this listing while it checks the buyer: mark them here');
+      const form = el('div', 'resform');
+      form.hidden = true;
+      const n = el('input');
+      n.type = 'number'; n.min = '1'; n.max = '99'; n.value = '1';
+      n.title = 'How many tickets the buyer took';
+      const seats = el('input');
+      seats.placeholder = 'seats (if known)';
+      seats.title = 'Their seats, as viagogo gives them ("1-2"): the app then knows which tickets';
+      const save = button('Save', 'mini primary');
+      for (const x of [n, seats, form]) x.addEventListener('click', stop);
+      act(save, () => send('reserveListing', { id: l.id, tickets: n.value, seats: seats.value }), () => `Reserved: ${U.plural(Number(n.value) || 1, 'ticket')} of listing ${l.id}.`);
+      form.append(el('span', 'buylabel', 'Tickets'), n, seats, save);
+      open.addEventListener('click', e => { stop(e); form.hidden = !form.hidden; if (!form.hidden) n.focus(); });
+      wrap.append(open, form);
+    }
+    return wrap;
   }
 
   /* The buy price on a listing card: an amount, a currency, and what the
@@ -1493,6 +1581,7 @@
     el, send, applyTheme, typingIn, statusClass, eventOf, siteOf, sectorIn,
     button, dot, labelled, checkbox, numberInput, textInput, segmented, busy,
     helpButton, openHelp, priceChips, fieldBox, sectorPicker, requestCard, requestList, addForm, sectorCard, sectorLabel, sectorHintText,
-    listingCard, listingGroups, forgetListingsButton, listingTotals, listingStateHint, trackToggle, sortRequests, sortListings
+    listingCard, listingGroups, forgetListingsButton, listingTotals, listingStateHint, trackToggle, sortRequests, sortListings,
+    stagePill, stageCounts
   };
 })(globalThis);
