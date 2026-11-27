@@ -320,6 +320,9 @@ create table if not exists public.sales (
 );
 create index if not exists sales_by_date  on public.sales (user_id, sold_on desc);
 create index if not exists sales_by_event on public.sales (event_key, sector_id);
+-- seats: viagogo's Seats on the sale ("1-4"), so the app can tell which of
+-- the listing's tickets it took
+alter table public.sales add column if not exists seats text not null default '';
 
 -- exchange rates: lek per unit of each currency, one row per day
 create table if not exists public.fx_rates (
@@ -482,7 +485,163 @@ begin
   return null;
 end $$;
 
+-- ------------------------------------------------------------- tickets
+-- A ticket is one page of a ticket PDF, with its own file: listings link to
+-- the tickets they hold, and a sale marks the tickets it took. The lot (the
+-- purchase) stays the order. Tickets only ever come from a PDF uploaded in
+-- the app; a lot with none stays counted (purchases.assigned, as before).
+-- All of it is its owner's alone, like purchases.
+
+-- Lots that were there when tickets came are frozen: read-only and counted
+-- for good (they can still be deleted). Only the run that adds the column
+-- freezes them, so running this file again never freezes a newer lot.
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'purchases' and column_name = 'frozen') then
+    alter table public.purchases add column frozen boolean not null default false;
+    update public.purchases set frozen = true;
+  end if;
+end $$;
+
+-- Which market a listing is on. viagogo is the only one read so far (its
+-- IDs as they are); StubHub's will be prefixed "sh:".
+alter table public.listings add column if not exists market text not null default 'viagogo';
+do $$ begin
+  alter table public.listings add constraint listings_market_check check (market in ('viagogo', 'stubhub'));
+exception when duplicate_object then null; end $$;
+
+--   page         the page of the PDF it came from (1 = first)
+--   sector_text  the sector as printed ("TRIBUNA E206"); sector_id: the tracked event's
+--   serial       the ticket number printed on it: one per person, never twice
+--   price        what it cost, bank fee included, in currency
+--   event_at     when the event is, as printed: its PDF is deleted 7 days after
+--   sale_id      the viagogo sale that took it (null: not sold on viagogo)
+--   file_path    its PDF in the private "tickets" bucket: <user id>/<ticket id>.pdf
+--   file_gone_at when the app deleted that PDF, after the event
+create table if not exists public.tickets (
+  id           text primary key,
+  user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  purchase_id  text not null references public.purchases (id) on delete cascade,
+  page         int,
+  sector_text  text not null default '',
+  sector_id    text,
+  row_label    text not null default '',
+  seat         text not null default '',
+  serial       text not null default '',
+  price        numeric,
+  currency     text not null default 'ALL',
+  event_at     timestamptz,
+  sale_id      text references public.sales (sale_id) on delete set null,
+  file_path    text,
+  file_gone_at timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create unique index if not exists tickets_serial on public.tickets (user_id, serial) where serial <> '';
+create index if not exists tickets_purchase on public.tickets (purchase_id);
+
+-- the tickets a listing holds; a link stays once the listing ends, as history
+create table if not exists public.listing_tickets (
+  listing_id text not null references public.listings (listing_id) on delete cascade,
+  ticket_id  text not null references public.tickets (id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (listing_id, ticket_id)
+);
+create index if not exists listing_tickets_ticket on public.listing_tickets (ticket_id);
+
+-- A ticket goes on its owner's own lot, never a frozen one, and is sold
+-- only by its owner's sale. The reads see only the caller's rows (RLS), so
+-- someone else's lot or sale is "not found".
+create or replace function public.check_ticket() returns trigger
+language plpgsql as $$
+declare lot record;
+begin
+  if tg_op = 'INSERT' or new.purchase_id is distinct from old.purchase_id then
+    select user_id, frozen into lot from public.purchases where id = new.purchase_id;
+    if not found or lot.user_id <> new.user_id then
+      raise exception 'ticket_not_yours: lot % is not yours', new.purchase_id;
+    end if;
+    if lot.frozen then
+      raise exception 'lot_frozen: lot % is frozen: it stays counted, with no tickets', new.purchase_id;
+    end if;
+  end if;
+  if new.sale_id is not null and (tg_op = 'INSERT' or new.sale_id is distinct from old.sale_id) then
+    if not exists (select 1 from public.sales where sale_id = new.sale_id and user_id = new.user_id) then
+      raise exception 'sale_not_yours: sale % is not yours', new.sale_id;
+    end if;
+  end if;
+  return new;
+end $$;
+
+-- A ticket on a listing. While the listing is active (its status as
+-- core/viagogo.js LISTING_STATUSES reads it: active, live, pending, draft,
+-- paused, on hold), the link is refused when
+--   (a) the ticket is already on another active listing of the same market
+--       (two markets at once is the point: one ticket, viagogo and StubHub), or
+--   (b) the listing would hold more unsold tickets than it lists.
+-- An ended listing takes any link: it is history, and its unsold tickets count as free.
+create or replace function public.check_listing_ticket() returns trigger
+language plpgsql as $$
+declare l record; t record; other text; held int;
+begin
+  select user_id, market, status, tickets into l from public.listings where listing_id = new.listing_id;
+  if not found or l.user_id <> new.user_id then
+    raise exception 'listing_not_yours: listing % is not yours', new.listing_id;
+  end if;
+  select user_id, sale_id into t from public.tickets where id = new.ticket_id;
+  if not found or t.user_id <> new.user_id then
+    raise exception 'ticket_not_yours: ticket % is not yours', new.ticket_id;
+  end if;
+  if btrim(l.status) !~* '^(active|live|pending|draft|paused|on hold)\y' then return new; end if;
+
+  select x.listing_id into other
+  from public.listing_tickets x join public.listings o on o.listing_id = x.listing_id
+  where x.ticket_id = new.ticket_id and x.listing_id <> new.listing_id
+    and o.market = l.market and btrim(o.status) ~* '^(active|live|pending|draft|paused|on hold)\y'
+  limit 1;
+  if other is not null then
+    raise exception 'ticket_double_listed: ticket % is already on listing %, on the same market', new.ticket_id, other;
+  end if;
+
+  if l.tickets is not null and t.sale_id is null then
+    select count(*) into held
+    from public.listing_tickets x join public.tickets k on k.id = x.ticket_id
+    where x.listing_id = new.listing_id and x.ticket_id <> new.ticket_id and k.sale_id is null;
+    if held + 1 > l.tickets then
+      raise exception 'listing_over_count: listing % holds % tickets, % are on it already', new.listing_id, l.tickets, held;
+    end if;
+  end if;
+  return new;
+end $$;
+
+-- the PDFs: a private bucket, one file per ticket under its owner's folder.
+-- Skipped where there is no Storage (the PGlite test stands one in).
+do $$ begin
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    insert into storage.buckets (id, name, public) values ('tickets', 'tickets', false)
+    on conflict (id) do update set public = false;
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'storage' and table_name = 'buckets' and column_name = 'allowed_mime_types') then
+      update storage.buckets set allowed_mime_types = array['application/pdf'], file_size_limit = 10485760 where id = 'tickets';
+    end if;
+    execute 'drop policy if exists tickets_own on storage.objects';
+    execute $p$create policy tickets_own on storage.objects for all to authenticated
+      using (bucket_id = 'tickets' and (storage.foldername(name))[1] = auth.uid()::text and public.is_member())
+      with check (bucket_id = 'tickets' and (storage.foldername(name))[1] = auth.uid()::text and public.is_member())$p$;
+  end if;
+end $$;
+
 -- --------------------------------------------------------------- triggers
+drop trigger if exists tickets_check on public.tickets;
+create trigger tickets_check before insert or update on public.tickets
+  for each row execute function public.check_ticket();
+
+drop trigger if exists listing_tickets_check on public.listing_tickets;
+create trigger listing_tickets_check before insert or update on public.listing_tickets
+  for each row execute function public.check_listing_ticket();
+
 drop trigger if exists vg_scans_keep_two on public.vg_scans;
 create trigger vg_scans_keep_two after insert on public.vg_scans
   for each row execute function public.keep_two_vg_scans();
@@ -498,7 +657,7 @@ create trigger requests_num before insert on public.requests
 do $$
 declare t text;
 begin
-  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales'] loop
+  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales', 'tickets', 'listing_tickets'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before update on public.%I for each row execute function public.touch_updated_at()', t);
   end loop;
@@ -548,6 +707,8 @@ returns jsonb language sql stable as $$
     'prices',   (select concat(max(updated_at), '|', count(*)) from public.sector_prices),
     'lastSales', (select concat(max(updated_at), '|', count(*)) from public.vg_last_sales),
     'vgScans',  (select concat(max(created_at), '|', count(*)) from public.vg_scans where user_id = auth.uid()),
+    'tickets',  (select concat(max(updated_at), '|', count(*)) from public.tickets where user_id = auth.uid()),
+    'ticketLinks', (select concat(max(updated_at), '|', count(*)) from public.listing_tickets where user_id = auth.uid()),
     'alerts',   (select coalesce(max(id), 0) from public.alerts where user_id = auth.uid())
   )
 $$;
@@ -594,11 +755,12 @@ create policy own_sales on public.sales for all to authenticated
   using (public.is_member() and user_id = auth.uid())
   with check (public.is_member() and user_id = auth.uid());
 
--- buying accounts (names, birthdays), purchases and saved viagogo scans: their owner's alone
+-- buying accounts (names, birthdays), purchases, their tickets and the listings
+-- those are on, and saved viagogo scans: their owner's alone
 do $$
 declare t text;
 begin
-  foreach t in array array['buy_accounts', 'purchases', 'vg_scans'] loop
+  foreach t in array array['buy_accounts', 'purchases', 'vg_scans', 'tickets', 'listing_tickets'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format('create policy own_rows on public.%I for all to authenticated using (public.is_member() and user_id = auth.uid()) with check (public.is_member() and user_id = auth.uid())', t);
@@ -616,7 +778,7 @@ revoke insert, update, delete on public.team_prices from authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.is_member(), public.claim_lease(text, text, int), public.release_lease(text, text),
   public.sync_status(), public.cleanup_old(), public.touch_updated_at(), public.assign_event_num(),
-  public.assign_request_num() to authenticated;
+  public.assign_request_num(), public.check_ticket(), public.check_listing_ticket() to authenticated;
 
 -- ------------------------------------------------------------ the team
 -- Who is on the team lives in supabase/team.sql, kept off GitHub because it

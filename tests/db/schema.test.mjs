@@ -52,6 +52,24 @@ await db.exec(`
   grant execute on function auth.uid() to authenticated, anon;
   insert into auth.users values ('${A}', 'Owner@Example.com'), ('${B}', 'mate@example.com'), ('${X}', 'stranger@example.com');
 `);
+/* and for Supabase Storage: its buckets, its files (row-level security on,
+ * as Supabase has it) and storage.foldername(), as Supabase defines it */
+await db.exec(`
+  create schema storage;
+  create table storage.buckets (id text primary key, name text not null, public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id bigint generated always as identity primary key, bucket_id text references storage.buckets (id), name text not null, unique (bucket_id, name));
+  create function storage.foldername(name text) returns text[] language plpgsql as $$
+    declare _parts text[];
+    begin
+      select string_to_array(name, '/') into _parts;
+      return _parts[1:array_length(_parts, 1) - 1];
+    end $$;
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to authenticated, anon;
+  grant select, insert, update, delete on storage.objects to authenticated;
+  grant select on storage.buckets to authenticated;
+  insert into storage.buckets (id, name) values ('other', 'other');
+`);
 
 let failures = 0;
 const ok = (cond, label, extra) => {
@@ -160,6 +178,98 @@ ok(/purchases_event_check/.test(await fails(A, `insert into public.purchases (id
 ok((await as(A, `select assigned from public.purchases where id = 'pu1'`)).rows[0].assigned && true, 'an older purchase gets an empty "assigned"');
 await as(A, `delete from public.buy_accounts where id = 'acc1'`);
 ok((await db.query(`select count(*)::int n from public.purchases`)).rows[0].n === 0, 'deleting an account deletes its purchases');
+
+console.log('\n== tickets: one per PDF page, their owner\'s alone');
+const err = p => p.then(() => '', e => e.message);
+/* a lot that was there before tickets came is frozen, once */
+await as(A, `insert into public.buy_accounts (id, user_id, email) values ('acc9', $1, 'tickets@example.com')`, [A]);
+await db.exec('alter table public.purchases drop column frozen');
+await as(A, `insert into public.purchases (id, user_id, account_id, event_key, qty) values ('pold', $1, 'acc9', 'ebileta:2153', 2)`, [A]);
+await db.exec(SCHEMA);
+await as(A, `insert into public.purchases (id, user_id, account_id, event_key, qty, price) values ('pt1', $1, 'acc9', 'ebileta:2153', 4, 2575)`, [A]);
+await db.exec(SCHEMA);
+const fz = Object.fromEntries((await db.query('select id, frozen from public.purchases')).rows.map(r => [r.id, r.frozen]));
+ok(fz.pold === true && fz.pt1 === false, 'a lot from before tickets is frozen; a newer one is not, and running schema.sql again changes neither', fz);
+
+const tk = (who, id, n, lot = 'pt1', serial) => as(who, `insert into public.tickets (id, purchase_id, page, sector_text, row_label, seat, serial, price, event_at)
+  values ($1, $2, $3, 'TRIBUNA E206', 'O', $4, $5, 2575, '2026-11-20T19:45:00Z')`, [id, lot, n, String(n), serial ?? `ALB 10000${n}`]);
+for (const n of [1, 2, 3, 4]) await tk(A, 't' + n, n);
+ok((await as(A, 'select * from public.tickets')).rows.length === 4, 'the owner reads the lot\'s four tickets');
+ok((await as(B, 'select * from public.tickets')).rows.length === 0, 'a teammate sees none of them');
+ok(/duplicate key/.test(await err(tk(A, 't5', 5, 'pt1', 'ALB 100001'))), 'a ticket number is saved once per person');
+await tk(A, 'tn1', 7, 'pt1', '');
+await tk(A, 'tn2', 8, 'pt1', '');
+ok((await as(A, `select count(*)::int n from public.tickets where serial = ''`)).rows[0].n === 2, 'tickets with no number printed are not held to that');
+await as(A, `delete from public.tickets where id in ('tn1', 'tn2')`);
+await as(B, `insert into public.buy_accounts (id, user_id, email) values ('accb', $1, 'mate.buys@example.com')`, [B]);
+await as(B, `insert into public.purchases (id, user_id, account_id, event_key, qty) values ('pb1', $1, 'accb', 'ebileta:2153', 1)`, [B]);
+await tk(B, 'tb1', 1, 'pb1', 'ALB 100001');
+ok((await as(B, 'select * from public.tickets')).rows.length === 1, 'someone else may hold the same number: unique per person');
+ok(/ticket_not_yours/.test(await err(tk(B, 'tb2', 2, 'pt1', 'X 2'))), 'nobody puts a ticket on someone else\'s lot');
+/* the trigger speaks first (before triggers run ahead of the row-level check) */
+ok(/row-level security|ticket_not_yours/.test(await fails(B, `insert into public.tickets (id, user_id, purchase_id) values ('tb3', $1, 'pt1')`, [A])), 'nobody files a ticket under someone else');
+ok(/lot_frozen/.test(await err(tk(A, 'tf1', 1, 'pold', 'F 1'))), 'a frozen lot takes no tickets');
+
+const lst = (id, status, tickets, market = 'viagogo') => as(A, `insert into public.listings (listing_id, user_id, event_key, status, tickets, market)
+  values ($1, $2, 'ebileta:2153', $3, $4, $5)`, [id, A, status, tickets, market]);
+await lst('14000000001', 'Active', 3);
+await lst('14000000002', 'Pending', 4);
+await lst('sh:5001', 'Active', 4, 'stubhub');
+await lst('14000000003', 'Expired', 0);
+ok((await as(A, `select market from public.listings where listing_id = '13988951528'`)).rows[0].market === 'viagogo', 'a listing read before markets is on viagogo');
+ok(/listings_market_check/.test(await err(lst('14000000009', 'Active', 1, 'ebay'))), 'a listing is on viagogo or StubHub');
+const link = (who, l, t) => as(who, 'insert into public.listing_tickets (listing_id, ticket_id) values ($1, $2)', [l, t]);
+for (const t of ['t1', 't2', 't3']) await link(A, '14000000001', t);
+ok((await as(A, `select count(*)::int n from public.listing_tickets where listing_id = '14000000001'`)).rows[0].n === 3, 'three tickets go on a listing of three');
+ok(/listing_over_count/.test(await err(link(A, '14000000001', 't4'))), 'a fourth is refused: the listing holds 3');
+ok(/ticket_double_listed/.test(await err(link(A, '14000000002', 't1'))), 'a ticket on an active viagogo listing goes on no other viagogo one (pending counts as active)');
+ok((await err(link(A, 'sh:5001', 't1'))) === '', 'the same ticket goes on a StubHub listing too');
+ok((await err(link(A, '14000000003', 't4'))) === '', 'an ended listing takes any link, as history');
+ok(/listing_not_yours|ticket_not_yours/.test(await err(link(B, '14000000002', 't4'))), 'nobody links someone else\'s tickets');
+ok(/ticket_not_yours/.test(await err(as(B, `insert into public.listings (listing_id, user_id, status, tickets) values ('14100000001', $1, 'Active', 2)`, [B])
+  .then(() => link(B, '14100000001', 't4')))), 'nor puts them on a listing of their own');
+ok((await as(B, 'select * from public.listing_tickets')).rows.length === 0, 'a teammate sees none of the links');
+
+await as(A, `insert into public.sales (sale_id, user_id, listing_id, tickets, seats) values ('7001', $1, '14000000001', 1, '1')`, [A]);
+await as(A, `update public.tickets set sale_id = '7001' where id = 't1'`);
+await as(A,`update public.listings set tickets = 2 where listing_id = '14000000001'`);
+ok(/listing_over_count/.test(await err(link(A, '14000000001', 't4'))), 'viagogo now lists 2 (one sold): t4 is refused');
+await as(A, `update public.listings set tickets = 3 where listing_id = '14000000001'`);
+ok((await err(link(A, '14000000001', 't4'))) === '', 'a sold ticket no longer counts: three unsold on a listing of three');
+ok((await as(A, `select seats from public.sales where sale_id = '7001'`)).rows[0].seats === '1', 'a sale keeps viagogo\'s seats');
+await as(B, `insert into public.sales (sale_id, user_id, tickets) values ('8001', $1, 1)`, [B]);
+ok(/sale_not_yours/.test(await err(as(A, `update public.tickets set sale_id = '8001' where id = 't2'`))), 'a ticket is sold only by its owner\'s sale');
+
+const sst = (await as(A, 'select public.sync_status() s')).rows[0].s;
+const sbt = (await as(B, 'select public.sync_status() s')).rows[0].s;
+ok(/\|4$/.test(sst.tickets) && /\|6$/.test(sst.ticketLinks) && /\|1$/.test(sbt.tickets) && sbt.ticketLinks === '|0',
+  'sync status counts only your own tickets and links', { ergi: [sst.tickets, sst.ticketLinks], aldo: [sbt.tickets, sbt.ticketLinks] });
+
+await as(A, `delete from public.sales where sale_id = '7001'`);
+ok((await as(A, `select sale_id from public.tickets where id = 't1'`)).rows[0].sale_id === null, 'a deleted sale leaves its ticket, unsold');
+await as(A, `delete from public.listings where listing_id = '14000000003'`);
+ok((await as(A, 'select count(*)::int n from public.listing_tickets')).rows[0].n === 5 && (await as(A, 'select count(*)::int n from public.tickets')).rows[0].n === 4,
+  'a deleted listing takes its links with it, never the tickets');
+await as(A, `delete from public.purchases where id = 'pt1'`);
+ok((await as(A, 'select count(*)::int n from public.tickets')).rows[0].n === 0 && (await as(A, 'select count(*)::int n from public.listing_tickets')).rows[0].n === 0,
+  'deleting a lot deletes its tickets and their links');
+
+console.log('\n== ticket PDFs: a private bucket, each person\'s own folder');
+const bucket = (await db.query(`select public, allowed_mime_types from storage.buckets where id = 'tickets'`)).rows[0];
+ok(bucket && bucket.public === false && String(bucket.allowed_mime_types) === 'application/pdf', 'the tickets bucket is private and takes PDFs only', bucket);
+const put = (who, name, b = 'tickets') => as(who, 'insert into storage.objects (bucket_id, name) values ($1, $2)', [b, name]);
+await put(A, `${A}/t1.pdf`);
+ok((await as(A, 'select name from storage.objects')).rows.length === 1, 'the owner saves and reads a PDF in their own folder');
+ok((await as(B, 'select name from storage.objects')).rows.length === 0, 'a teammate sees none of it');
+ok(/row-level security/.test(await err(put(B, `${A}/t2.pdf`))), 'nobody saves into someone else\'s folder');
+ok(/row-level security/.test(await err(put(X, `${X}/t3.pdf`))), 'a stranger saves nothing, even in a folder of their own');
+ok(/row-level security/.test(await err(put(A, `${A}/t4.pdf`, 'other'))), 'the rule opens the tickets bucket only');
+ok((await as(A, `delete from storage.objects where name = '${A}/t1.pdf' returning 1`)).rows.length === 1, 'the owner deletes their own PDF');
+
+/* what these checks added goes, so the counts further down are as before */
+await db.query(`delete from public.listings where listing_id in ('14000000001', '14000000002', 'sh:5001', '14100000001')`);
+await db.query(`delete from public.sales where sale_id = '8001'`);
+await db.query(`delete from public.buy_accounts where id in ('acc9', 'accb')`);
 
 console.log('\n== price list: shared by the team');
 await as(A, `insert into public.sector_prices (event_key, sector_id, amount, currency) values ('ebileta:2153', '1637', 4000, 'ALL')`);

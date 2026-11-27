@@ -55,7 +55,7 @@ A PC is told only when the shared version is higher than the `"version"` in its 
 back** removes it.
 
 After a release that changes the database, run `supabase/schema.sql` again (see below) before the
-PCs update. Running it twice is harmless.
+PCs update **and before the app is published**. Running it twice is harmless.
 
 ### Preparing the shared database (once, for the whole team)
 
@@ -71,6 +71,27 @@ PCs update. Running it twice is harmless.
 The project URL and the **publishable** key are built into `core/config.js`. That key is public by
 design — on its own it opens nothing, because every table is behind the members list. The secret /
 service_role key and the database password never belong in the extension.
+
+### Tickets in the database
+
+A lot made in the app from its ticket PDF keeps every ticket on its own. The extension shows none of
+this (it has no tickets screen); it only keeps viagogo's **Seats** on each sale it reads, so the app
+can tell which tickets a sale took. What `schema.sql` holds for it, all of it **yours alone**, like
+purchases:
+
+| | |
+|---|---|
+| `tickets` | one per page of a PDF: its lot, page, sector as printed, row, seat, ticket number (once per person), price with the fee, when the event is, the viagogo sale that took it, and where its PDF is |
+| `listing_tickets` | which tickets a listing holds; kept once the listing ends, as history |
+| `purchases.frozen` | the lots there were when tickets came: they stay counted, read-only (set once, never again) |
+| `listings.market` | `viagogo` (every listing the extension reads) or `stubhub` (IDs `sh:…`, later) |
+| `sales.seats` | viagogo's Seats on the sale (`1-4`) |
+| Storage bucket `tickets` | private, one PDF per ticket under `<your id>/`, only you can read or write your folder; the app deletes a PDF 7 days after its event |
+
+The database itself refuses a ticket on two active listings of the **same** market (viagogo and
+StubHub at once is fine), more unsold tickets on an active listing than it lists, a ticket on someone
+else's lot or a frozen one, and a sale that is not yours. Rerun `schema.sql` in Supabase **before the
+app with tickets is published** (the app says so until then).
 
 ### Moving over from the three old extensions
 
@@ -97,7 +118,7 @@ Everyone signs in with their own account. What that changes:
 | auto-check intervals | your defaults for new requests | the PC's name |
 | viagogo sell prices per section, exchange rates | your viagogo listings, payouts and profits | |
 | viagogo's "just sold" sales (last sales) | your viagogo sales and their profit | |
-| the price list per sector, buy limits per site and event | your buying accounts and purchases | |
+| the price list per sector, buy limits per site and event | your buying accounts, purchases, their tickets and PDFs | |
 | the update link | your saved viagogo event scans | |
 
 **Requests are judged one by one, never added up.** If you want 5 seats in E105 and someone else
@@ -314,6 +335,8 @@ Buyer names, emails and phone numbers in that list are never saved.
   "Completed" either way, so this comes from the sale's status).
 - **Buy price.** It comes from the listing, else the request, else the sector's price. A section
   whose sales have none gets a box: type one price and **Save** puts it on all of them.
+- **Seats.** A sale keeps viagogo's Seats (`1-4`), so the app can mark which of a listing's tickets
+  it took. A database that has not run the newer `schema.sql` still saves the rest of the sale.
 
 Sales are saved for you alone, so every PC you sign in on, and the app, sees them.
 
@@ -494,6 +517,11 @@ the price paid with the fee, the order code, and the request it fills.
 the price list, and the inventory: lots put on listings, tickets still to buy) lives in the app; see [the app's README](../seat-tracker-app/README.md#buying).
 Accounts and purchases are yours alone. The limits and the price list are the team's.
 
+**Tickets** come from their PDF, in the app (**New Lot**): one ticket per page, each with its own
+private PDF, put on listings and marked sold one by one (see [the app's
+Inventory](../seat-tracker-app/README.md#inventory) and [Tickets in the database](#tickets-in-the-database)).
+The purchases **Add purchase** makes here are counted lots; upload their PDF into them in the app.
+
 ---
 
 ## On the sites
@@ -634,7 +662,7 @@ the popup and the sidebar all work unchanged. The contract is documented at the 
 | Command | What it checks |
 |---|---|
 | `node --test tests/*.test.js` | also: sales, last sales and their scan, face values, the update link, removed eBileta sectors, saved-scan rows · viagogo market: your pinned listings kept out of other sections, ranks with ties, verdicts, sold listings, sections without a map id, event page addresses · seat rules: the status table from the original spec (both row-ordering modes), aisles, backwards seat numbers, rotated rows, price filters · viagogo: dates as each site writes them, matching a listing to its event and sector, remembered pairings · money: prices as the sites write them, eBileta's price block, rates per day, buy price per site, the profit example above · eBileta Kosovo: its own site next to eBileta, its sector list (from real markup), seat pages with euro prices |
-| `node tests/db/schema.test.mjs` | `supabase/schema.sql` on a real Postgres: runs twice without losing data, members only, numbering, leases, "alert once", commands handled once, listings, sales, accounts, purchases and saved scans private to their owner, saved scans kept to the newest 2, team prices without payouts, cascades |
+| `node tests/db/schema.test.mjs` | `supabase/schema.sql` on a real Postgres: runs twice without losing data, members only, numbering, leases, "alert once", commands handled once, listings, sales, accounts, purchases and saved scans private to their owner, saved scans kept to the newest 2, team prices without payouts, tickets (frozen lots set once, a ticket number once per person, one active listing per market, no more unsold tickets than a listing lists, links and PDFs their owner's alone, a private bucket with a folder each), cascades |
 | `node tests/browser/ebileta-ks.mjs` | eBileta Kosovo's event page built from its real markup: the sidebar on `listaEventiPub.do`, Track this event as idSM 1215 with its 14 sectors, pills and map badges (`L2|2`), the sidebar's sector search, a sector opening on `eu.ebileta.al` |
 | `node tests/browser/viagogo-event.mjs` | the event drawer on a stand-in event page built from real viagogo markup: Scan off while a section is picked, one scan pressing "Show more" to the end with no reloads, every listing sorted into its section, ranks, gaps, verdicts, eBileta seats, profit, graphs, the table's search box, By price and its filters, stands, Save scan (the newest 2, here and in the app), Changes, deleting and Reset, a scan deleted in the app dropped here, the Last sales tab, Stop, and a refresh clearing the scan on screen |
 | `node --test tests/preview.test.js` | reading a stadium before tracking it: it goes through the same adapter, refuses on an event that is already tracked, skips the sold-out sectors, writes nothing at all to Supabase, and the map's three badges say wanted / free-but-unasked / nothing, with silence for a sector nobody has read |
@@ -706,7 +734,8 @@ help/                      the full guide page
 icons/
 supabase/
   schema.sql               the shared database: tables, access rules, leases, numbering, listings,
-                           sales, last sales, accounts, purchases, the price list, saved scans
+                           sales, last sales, accounts, purchases, tickets and the listings they are
+                           on, the tickets' PDF bucket, the price list, saved scans
   team.example.sql         who is on the team; copy to team.sql (not in git) with the real emails
 tests/
   *.test.js                unit tests (node --test)

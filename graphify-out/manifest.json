@@ -1,0 +1,566 @@
+{
+  "background.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.491121,
+    "ast_hash": "6d7b720c2b987301495d0653fce7abaf",
+    "semantic_hash": "6d7b720c2b987301495d0653fce7abaf"
+  },
+  "bg/alerts.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911256,
+    "ast_hash": "677c104b45754cdd54d10660174cdfdb",
+    "semantic_hash": "677c104b45754cdd54d10660174cdfdb"
+  },
+  "bg/commands.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911273,
+    "ast_hash": "dd51194655f64e895b20b010f146e377",
+    "semantic_hash": "dd51194655f64e895b20b010f146e377"
+  },
+  "bg/events.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.491128,
+    "ast_hash": "14edc322b1865f09736f980223e41c11",
+    "semantic_hash": "14edc322b1865f09736f980223e41c11"
+  },
+  "bg/fx.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.491129,
+    "ast_hash": "a1130c3154f9a471e3c1653cf4d3d637",
+    "semantic_hash": "a1130c3154f9a471e3c1653cf4d3d637"
+  },
+  "bg/importer.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911296,
+    "ast_hash": "67ebde43c042004d50bba72a8b3cd6c0",
+    "semantic_hash": "67ebde43c042004d50bba72a8b3cd6c0"
+  },
+  "bg/lastsalescan.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911304,
+    "ast_hash": "7a51c630b8aebdc9e5ae7914971b34e5",
+    "semantic_hash": "7a51c630b8aebdc9e5ae7914971b34e5"
+  },
+  "bg/net.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911308,
+    "ast_hash": "2b1c3c4cf240eb3e3e739cd543d825ba",
+    "semantic_hash": "2b1c3c4cf240eb3e3e739cd543d825ba"
+  },
+  "bg/notify.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911313,
+    "ast_hash": "54abef4cf81629d4225b4f3e2441b58c",
+    "semantic_hash": "54abef4cf81629d4225b4f3e2441b58c"
+  },
+  "bg/remote.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911323,
+    "ast_hash": "ed9c483c6605ad108f5997e5c923d2b7",
+    "semantic_hash": "ed9c483c6605ad108f5997e5c923d2b7"
+  },
+  "bg/store.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911327,
+    "ast_hash": "6118401b1b408386e555b7f5e5c6c3aa",
+    "semantic_hash": "6118401b1b408386e555b7f5e5c6c3aa"
+  },
+  "bg/supabase.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911335,
+    "ast_hash": "8b225c4d22791cd69cbd43ac9a4635a1",
+    "semantic_hash": "8b225c4d22791cd69cbd43ac9a4635a1"
+  },
+  "content/act.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911342,
+    "ast_hash": "d602b7071792fb982ae8acef2c6506fb",
+    "semantic_hash": "d602b7071792fb982ae8acef2c6506fb"
+  },
+  "content/shell.js": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911346,
+    "ast_hash": "3f37ebcef6529797b8f96d02d3f5d9bf",
+    "semantic_hash": "3f37ebcef6529797b8f96d02d3f5d9bf"
+  },
+  "content/sites/ebileta-act.js": {
+    "mtime": 1795732181.5222187,
+    "seen": 1795733040.4911351,
+    "ast_hash": "98f88faec395fa41cd25e528c0193eed",
+    "semantic_hash": "98f88faec395fa41cd25e528c0193eed"
+  },
+  "content/sites/ebileta-checkout.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.491136,
+    "ast_hash": "6de51279af15e10b4301d9e3c9e8cc5f",
+    "semantic_hash": "6de51279af15e10b4301d9e3c9e8cc5f"
+  },
+  "content/sites/ebileta-events.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911366,
+    "ast_hash": "f99fbcd5c9f4e5dc58f32ac48c3419d9",
+    "semantic_hash": "f99fbcd5c9f4e5dc58f32ac48c3419d9"
+  },
+  "content/sites/ebileta-seats.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911373,
+    "ast_hash": "243ce921f4d9a2aefba7f31d4f0212ce",
+    "semantic_hash": "243ce921f4d9a2aefba7f31d4f0212ce"
+  },
+  "content/sites/ebileta-sectors.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911377,
+    "ast_hash": "563a27c1e186676e1189b45652fae51e",
+    "semantic_hash": "563a27c1e186676e1189b45652fae51e"
+  },
+  "content/sites/efinity-act.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911385,
+    "ast_hash": "8358bde4691a8915b5e6dd32c6522915",
+    "semantic_hash": "8358bde4691a8915b5e6dd32c6522915"
+  },
+  "content/sites/efinity.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911392,
+    "ast_hash": "9df5a53e92f8e49798caffac4984aed5",
+    "semantic_hash": "9df5a53e92f8e49798caffac4984aed5"
+  },
+  "content/sites/posttick-page.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911397,
+    "ast_hash": "a4d43908196277d92a3120da45046f89",
+    "semantic_hash": "a4d43908196277d92a3120da45046f89"
+  },
+  "content/sites/posttick.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911406,
+    "ast_hash": "a902e063056239dbd1cbbcb72e91ff61",
+    "semantic_hash": "a902e063056239dbd1cbbcb72e91ff61"
+  },
+  "content/sites/viagogo-event.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.491141,
+    "ast_hash": "b8b9519fab4656e81c2d789bda35280a",
+    "semantic_hash": "b8b9519fab4656e81c2d789bda35280a"
+  },
+  "content/sites/viagogo-lastsale.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911416,
+    "ast_hash": "b43a8b18f363551321231b467a12f751",
+    "semantic_hash": "b43a8b18f363551321231b467a12f751"
+  },
+  "content/sites/viagogo.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911425,
+    "ast_hash": "c512254896bbf1d1f955c0d80fe6ebf7",
+    "semantic_hash": "c512254896bbf1d1f955c0d80fe6ebf7"
+  },
+  "core/config.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.491143,
+    "ast_hash": "7f071261f33490ad782b9e63c80524bb",
+    "semantic_hash": "7f071261f33490ad782b9e63c80524bb"
+  },
+  "core/face.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911437,
+    "ast_hash": "5e94be05cb7b20d1499ca263e6ba96be",
+    "semantic_hash": "5e94be05cb7b20d1499ca263e6ba96be"
+  },
+  "core/help.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911442,
+    "ast_hash": "86412a654130b265b2708154ab901b8a",
+    "semantic_hash": "86412a654130b265b2708154ab901b8a"
+  },
+  "core/lastsales.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.491145,
+    "ast_hash": "1441096b433dde11fd99a7039ad24920",
+    "semantic_hash": "1441096b433dde11fd99a7039ad24920"
+  },
+  "core/market.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911454,
+    "ast_hash": "97a449284b357283d71d23c50db3a1a4",
+    "semantic_hash": "97a449284b357283d71d23c50db3a1a4"
+  },
+  "core/profit.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911463,
+    "ast_hash": "a45fbcb9c2cc8d97c3b9557f9c82612e",
+    "semantic_hash": "a45fbcb9c2cc8d97c3b9557f9c82612e"
+  },
+  "core/registry.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911468,
+    "ast_hash": "fc57f9b6c4681296d81268349cb70811",
+    "semantic_hash": "fc57f9b6c4681296d81268349cb70811"
+  },
+  "core/rules.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911475,
+    "ast_hash": "105f4fcef3541fcd4eea75573767eedf",
+    "semantic_hash": "105f4fcef3541fcd4eea75573767eedf"
+  },
+  "core/sales.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.491148,
+    "ast_hash": "5e7293c23cf0ec981ad0f6c91173cdaf",
+    "semantic_hash": "5e7293c23cf0ec981ad0f6c91173cdaf"
+  },
+  "core/settings.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911487,
+    "ast_hash": "4261d7db1630993832e5cf006420ed48",
+    "semantic_hash": "4261d7db1630993832e5cf006420ed48"
+  },
+  "core/team.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911494,
+    "ast_hash": "fc8f19bc5533a655a28ea8c0390c4261",
+    "semantic_hash": "fc8f19bc5533a655a28ea8c0390c4261"
+  },
+  "core/update.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.49115,
+    "ast_hash": "8341ef0f26eb1b4630a244740e7ac190",
+    "semantic_hash": "8341ef0f26eb1b4630a244740e7ac190"
+  },
+  "core/util.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911506,
+    "ast_hash": "d4b8e3cffa7b6ba9fe9c212100a868cb",
+    "semantic_hash": "d4b8e3cffa7b6ba9fe9c212100a868cb"
+  },
+  "core/viagogo.js": {
+    "mtime": 1795732181.5226853,
+    "seen": 1795733040.4911513,
+    "ast_hash": "02e64e6a781d45dc20b20ef1e766711e",
+    "semantic_hash": "02e64e6a781d45dc20b20ef1e766711e"
+  },
+  "help/help.js": {
+    "mtime": 1795732181.535558,
+    "seen": 1795733040.4911518,
+    "ast_hash": "ba794a7bb03a233387df28551fefd7ed",
+    "semantic_hash": "ba794a7bb03a233387df28551fefd7ed"
+  },
+  "manifest.json": {
+    "mtime": 1795732181.5365644,
+    "seen": 1795733040.4911523,
+    "ast_hash": "c13bf71eec5fde762521c11696a5d289",
+    "semantic_hash": "c13bf71eec5fde762521c11696a5d289"
+  },
+  "popup/popup.js": {
+    "mtime": 1795732181.5391848,
+    "seen": 1795733040.4911532,
+    "ast_hash": "bbe10568b405930822d34961d9e2d93e",
+    "semantic_hash": "bbe10568b405930822d34961d9e2d93e"
+  },
+  "release.sh": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.491154,
+    "ast_hash": "517d3b1c948f6707e8005f3ff9d9e298",
+    "semantic_hash": "517d3b1c948f6707e8005f3ff9d9e298"
+  },
+  "sites/ebileta.js": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911547,
+    "ast_hash": "061bc42af753218197720bbae147600e",
+    "semantic_hash": "061bc42af753218197720bbae147600e"
+  },
+  "sites/efinity.js": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911551,
+    "ast_hash": "2d0b32169ecb92e461e73e51a696d45c",
+    "semantic_hash": "2d0b32169ecb92e461e73e51a696d45c"
+  },
+  "sites/posttick.js": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911556,
+    "ast_hash": "60247bb78243bcae431fa314f9de7ea2",
+    "semantic_hash": "60247bb78243bcae431fa314f9de7ea2"
+  },
+  "supabase/schema.sql": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911563,
+    "ast_hash": "d34c8c46c12631443eec1c0c0875824a",
+    "semantic_hash": "d34c8c46c12631443eec1c0c0875824a"
+  },
+  "supabase/team.example.sql": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.491157,
+    "ast_hash": "a9b4d6a857555babb0c711001df8b92d",
+    "semantic_hash": "a9b4d6a857555babb0c711001df8b92d"
+  },
+  "tests/act.test.js": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911575,
+    "ast_hash": "64bc753be63af8a8d18b7c5df7fa5caf",
+    "semantic_hash": "64bc753be63af8a8d18b7c5df7fa5caf"
+  },
+  "tests/browser/ebileta-checkout.mjs": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911582,
+    "ast_hash": "3b3ace3adcaf3a8b33125a9b6d80f91c",
+    "semantic_hash": "3b3ace3adcaf3a8b33125a9b6d80f91c"
+  },
+  "tests/browser/ebileta-ks.mjs": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911587,
+    "ast_hash": "2dab2e7f23821d108d5bd89339d87186",
+    "semantic_hash": "2dab2e7f23821d108d5bd89339d87186"
+  },
+  "tests/browser/popup.mjs": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911594,
+    "ast_hash": "2e8c7819f8bd2d0321de7ab8d34279d6",
+    "semantic_hash": "2e8c7819f8bd2d0321de7ab8d34279d6"
+  },
+  "tests/browser/viagogo-event.mjs": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911602,
+    "ast_hash": "80ca9963605cdf145f66e01a8d651feb",
+    "semantic_hash": "80ca9963605cdf145f66e01a8d651feb"
+  },
+  "tests/browser/viagogo-lastsale.mjs": {
+    "mtime": 1795732181.5488927,
+    "seen": 1795733040.4911606,
+    "ast_hash": "2569d9255200beadb457256b0fdae332",
+    "semantic_hash": "2569d9255200beadb457256b0fdae332"
+  },
+  "tests/browser/viagogo-listings.mjs": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911613,
+    "ast_hash": "4abbe4f147d390aa55b11ae44ff3c6df",
+    "semantic_hash": "4abbe4f147d390aa55b11ae44ff3c6df"
+  },
+  "tests/browser/viagogo-sales.mjs": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911618,
+    "ast_hash": "ba58c5553b37629b120b781faab9607e",
+    "semantic_hash": "ba58c5553b37629b120b781faab9607e"
+  },
+  "tests/db/schema.test.mjs": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911625,
+    "ast_hash": "18390c2675cf652f31ea91470006b506",
+    "semantic_hash": "18390c2675cf652f31ea91470006b506"
+  },
+  "tests/ebileta.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911633,
+    "ast_hash": "b30d0df356d15ed1b0d2e02d4fba1185",
+    "semantic_hash": "b30d0df356d15ed1b0d2e02d4fba1185"
+  },
+  "tests/efinity-bar.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.491164,
+    "ast_hash": "49ce9b7274137f5cf76d6d4f9056e0dd",
+    "semantic_hash": "49ce9b7274137f5cf76d6d4f9056e0dd"
+  },
+  "tests/face.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911644,
+    "ast_hash": "d6c03ea19125b67049e3260098203488",
+    "semantic_hash": "d6c03ea19125b67049e3260098203488"
+  },
+  "tests/lastsales.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911652,
+    "ast_hash": "493f03ccc0d7bfb29ca5682802bef66b",
+    "semantic_hash": "493f03ccc0d7bfb29ca5682802bef66b"
+  },
+  "tests/lastsalescan.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911656,
+    "ast_hash": "c9d222eb1b91e6caafbf7e535541b4e5",
+    "semantic_hash": "c9d222eb1b91e6caafbf7e535541b4e5"
+  },
+  "tests/listings-api.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.491166,
+    "ast_hash": "4ce7f36f0138d67f77f28945e589a2e6",
+    "semantic_hash": "4ce7f36f0138d67f77f28945e589a2e6"
+  },
+  "tests/listings.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.491167,
+    "ast_hash": "b7ee5ec144a32a2ccbdd2eb2fb831ed0",
+    "semantic_hash": "b7ee5ec144a32a2ccbdd2eb2fb831ed0"
+  },
+  "tests/market.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911675,
+    "ast_hash": "8e64ab33e858e4d7fd969cc1d82a8f0c",
+    "semantic_hash": "8e64ab33e858e4d7fd969cc1d82a8f0c"
+  },
+  "tests/pcnotify.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.491168,
+    "ast_hash": "d0c5da16fcaf443bdf5336d43e06dd7b",
+    "semantic_hash": "d0c5da16fcaf443bdf5336d43e06dd7b"
+  },
+  "tests/preview.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911685,
+    "ast_hash": "b6fbfdcbd87321a20de031315ce67f28",
+    "semantic_hash": "b6fbfdcbd87321a20de031315ce67f28"
+  },
+  "tests/profit.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911692,
+    "ast_hash": "4fd1dea2e97675d92f6b8df41218e1f3",
+    "semantic_hash": "4fd1dea2e97675d92f6b8df41218e1f3"
+  },
+  "tests/removed.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911697,
+    "ast_hash": "2c5b3d77b81bb74479b972b09215633a",
+    "semantic_hash": "2c5b3d77b81bb74479b972b09215633a"
+  },
+  "tests/rules.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911706,
+    "ast_hash": "cf7c139255b7e158049e8efdb91a210f",
+    "semantic_hash": "cf7c139255b7e158049e8efdb91a210f"
+  },
+  "tests/sales.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911711,
+    "ast_hash": "aa8bce631d39f5086d8f0b65bcc37334",
+    "semantic_hash": "aa8bce631d39f5086d8f0b65bcc37334"
+  },
+  "tests/sweep.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911718,
+    "ast_hash": "1eaecb569b20729c1959659d137ccefc",
+    "semantic_hash": "1eaecb569b20729c1959659d137ccefc"
+  },
+  "tests/team.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911723,
+    "ast_hash": "c1bf8b81a4d2e335b0ed78733015692b",
+    "semantic_hash": "c1bf8b81a4d2e335b0ed78733015692b"
+  },
+  "tests/titles.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.491173,
+    "ast_hash": "39f68e81ab0e1e31146ad79bc39cee5c",
+    "semantic_hash": "39f68e81ab0e1e31146ad79bc39cee5c"
+  },
+  "tests/update.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911737,
+    "ast_hash": "e43d382e91657789b2b4a641de56044a",
+    "semantic_hash": "e43d382e91657789b2b4a641de56044a"
+  },
+  "tests/viagogo.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911745,
+    "ast_hash": "547fadb5431f53666547d58c4b737798",
+    "semantic_hash": "547fadb5431f53666547d58c4b737798"
+  },
+  "tests/worker.test.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911752,
+    "ast_hash": "2af445da0908c50aecd3807b0896bc9f",
+    "semantic_hash": "2af445da0908c50aecd3807b0896bc9f"
+  },
+  "ui/components.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911757,
+    "ast_hash": "0998c4a8467f64a0f089910389c132c9",
+    "semantic_hash": "0998c4a8467f64a0f089910389c132c9"
+  },
+  "ui/lastsalewatch.js": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911764,
+    "ast_hash": "b647672dac02be3ff3d201e094e7b1a3",
+    "semantic_hash": "b647672dac02be3ff3d201e094e7b1a3"
+  },
+  "COMMANDS.md": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911773,
+    "ast_hash": "aa6c15f30e195bb94308cac9ace3212e",
+    "semantic_hash": "aa6c15f30e195bb94308cac9ace3212e"
+  },
+  "NOTIFICATIONS.md": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911778,
+    "ast_hash": "10084fe5780a59a322ab66063cb89f4c",
+    "semantic_hash": "10084fe5780a59a322ab66063cb89f4c"
+  },
+  "README.md": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911785,
+    "ast_hash": "b1756ca3ed205a1816fa5b5a0fe9c61b",
+    "semantic_hash": "b1756ca3ed205a1816fa5b5a0fe9c61b"
+  },
+  "SHORTCUTS.md": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.491179,
+    "ast_hash": "f6cc4c565e271c1a4673ec055d251c94",
+    "semantic_hash": "f6cc4c565e271c1a4673ec055d251c94"
+  },
+  "TODO.md": {
+    "mtime": 1795732181.5088713,
+    "seen": 1795733040.4911795,
+    "ast_hash": "a911fcd5ba9458cecbca84c6d301a0c7",
+    "semantic_hash": "a911fcd5ba9458cecbca84c6d301a0c7"
+  },
+  "help/help.html": {
+    "mtime": 1795732181.535558,
+    "seen": 1795733040.4911802,
+    "ast_hash": "71bd45d56bd2ffee4b766a7220b1bbc9",
+    "semantic_hash": "71bd45d56bd2ffee4b766a7220b1bbc9"
+  },
+  "popup/popup.html": {
+    "mtime": 1795732181.5391848,
+    "seen": 1795733040.4911816,
+    "ast_hash": "aec6f92f0d3ec4b816e5e7bb666fd940",
+    "semantic_hash": "aec6f92f0d3ec4b816e5e7bb666fd940"
+  },
+  "tests/browser/fixtures/ebileta-checkout.html": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911823,
+    "ast_hash": "81d0ff25b33e9d511423a0a89d60e10c",
+    "semantic_hash": "81d0ff25b33e9d511423a0a89d60e10c"
+  },
+  "tests/browser/fixtures/viagogo-event-row.html": {
+    "mtime": 1795732181.5407267,
+    "seen": 1795733040.4911828,
+    "ast_hash": "6aacb4d29e7b02b5b72890bbff3414ce",
+    "semantic_hash": "6aacb4d29e7b02b5b72890bbff3414ce"
+  },
+  "tests/fixtures/ebileta-ks-sectors.html": {
+    "mtime": 1795732181.5493762,
+    "seen": 1795733040.4911835,
+    "ast_hash": "038559f4b1e7dbb63ac690c6bf669181",
+    "semantic_hash": "038559f4b1e7dbb63ac690c6bf669181"
+  },
+  "icons/128.png": {
+    "mtime": 1795732181.5365644,
+    "seen": 1795733040.4911842,
+    "ast_hash": "e67d29ae021811999fd4d353d6bee228",
+    "semantic_hash": "e67d29ae021811999fd4d353d6bee228"
+  },
+  "icons/16.png": {
+    "mtime": 1795732181.5365644,
+    "seen": 1795733040.491185,
+    "ast_hash": "7d954c8b7d06ebbbd5ef730eca07b646",
+    "semantic_hash": "7d954c8b7d06ebbbd5ef730eca07b646"
+  },
+  "icons/32.png": {
+    "mtime": 1795732181.5365644,
+    "seen": 1795733040.4911854,
+    "ast_hash": "d02cf70713f9e1a4f19a3507bbce9082",
+    "semantic_hash": "d02cf70713f9e1a4f19a3507bbce9082"
+  },
+  "icons/48.png": {
+    "mtime": 1795732181.5365644,
+    "seen": 1795733040.491186,
+    "ast_hash": "a24ff253a011c670d0841642b9f2b31d",
+    "semantic_hash": "a24ff253a011c670d0841642b9f2b31d"
+  }
+}

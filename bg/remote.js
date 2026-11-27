@@ -52,7 +52,7 @@ const Remote = (() => {
   const toSale = r => ({
     id: r.sale_id, userId: r.user_id, eventKey: r.event_key || null, sectorId: r.sector_id || null,
     vgEventId: r.vg_event_id || '', listingId: r.listing_id || null, title: r.title || '', when: r.event_when || '',
-    venue: r.venue || '', section: r.section || '', row: r.row_label || '', tickets: numOr(r.tickets),
+    venue: r.venue || '', section: r.section || '', row: r.row_label || '', seats: r.seats || '', tickets: numOr(r.tickets),
     currency: r.currency || 'USD', amount: numOr(r.amount), status: r.status || '',
     soldOn: r.sold_on ? String(r.sold_on).slice(0, 10) : '',
     buyPrice: numOr(r.buy_price), buyCurrency: r.buy_currency || 'ALL', seenAt: time(r.seen_at)
@@ -337,10 +337,18 @@ const Remote = (() => {
     return (out || []).length;
   }
 
-  /* sales as read on My Sales; a sale already saved is updated in place */
+  /* sales as read on My Sales; a sale already saved is updated in place.
+   * seats came later: a database that has not run schema.sql since still takes the rest */
   async function saveSales(rows) {
     if (!rows.length) return 0;
-    const out = await Supa.rest('POST', 'sales', { body: rows, prefer: 'resolution=merge-duplicates,return=representation' });
+    const post = body => Supa.rest('POST', 'sales', { body, prefer: 'resolution=merge-duplicates,return=representation' });
+    let out;
+    try {
+      out = await post(rows);
+    } catch (e) {
+      if (!/seats/i.test(String(e && e.message))) throw e;
+      out = await post(rows.map(r => { const rest = Object.assign({}, r); delete rest.seats; return rest; }));
+    }
     await mutateMirror(m => { for (const r of out || []) m.sales[r.sale_id] = toSale(r); });
     return (out || []).length;
   }

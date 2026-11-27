@@ -1257,12 +1257,12 @@ async function saveListings(items, userId, opts) {
  * and written only when new or changed.                               *
  * ------------------------------------------------------------------ */
 
-const SALE_KEYS = ['listingId', 'title', 'section', 'row', 'tickets', 'currency', 'amount', 'status', 'soldOn'];
+const SALE_KEYS = ['listingId', 'title', 'section', 'row', 'seats', 'tickets', 'currency', 'amount', 'status', 'soldOn'];
 
 function cleanSale(x) {
   const s = SK.sales.saleFromApi({
     SaleId: x && x.id, ListingId: x && x.listingId, EventId: x && x.vgEventId, EventDescription: x && x.title,
-    EventDate: x && x.when, Venue: x && x.venue, Section: x && x.section, Row: x && x.row, Quantity: x && x.tickets,
+    EventDate: x && x.when, Venue: x && x.venue, Section: x && x.section, Row: x && x.row, Seats: x && x.seats, Quantity: x && x.tickets,
     Currency: x && x.currency, TotalPayout: x && x.amount, Status: x && x.status, SaleDate: x && (x.soldAt || x.soldOn)
   });
   return s;
@@ -1286,7 +1286,7 @@ async function saveSales(items, userId) {
     rows.push({
       sale_id: it.id, user_id: userId, event_key: match.eventKey, sector_id: match.sectorId, vg_event_id: it.vgEventId,
       listing_id: it.listingId, title: it.title, event_when: it.when, venue: it.venue, section: it.section, row_label: it.row,
-      tickets: it.tickets, currency: it.currency, amount: it.amount, status: it.status, sold_on: it.soldOn || null,
+      seats: it.seats, tickets: it.tickets, currency: it.currency, amount: it.amount, status: it.status, sold_on: it.soldOn || null,
       seen_at: new Date(now).toISOString(), seen_by: m.device.name || m.device.id
     });
   }

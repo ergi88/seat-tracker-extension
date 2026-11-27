@@ -29,13 +29,24 @@ test('saleFromApi keeps the sale and nothing of the buyer', () => {
   const s = S.saleFromApi(API[0]);
   assert.deepEqual(s, {
     id: '656096343', listingId: '14123898111', vgEventId: '161613551', title: 'Albania vs San Marino - Nations League', when: '', venue: '',
-    section: 'N105', row: '', tickets: 3, currency: 'USD', amount: 86.4, status: 'Get Paid', soldOn: '2026-10-04', soldAt: '2026-10-04T08:17:16'
+    section: 'N105', row: '', seats: '', tickets: 3, currency: 'USD', amount: 86.4, status: 'Get Paid', soldOn: '2026-10-04', soldAt: '2026-10-04T08:17:16'
   });
   assert.doesNotMatch(JSON.stringify(s), /example\.com|\+355|Buyer/);
   const e = S.saleFromApi(API[2]);
   assert.equal(e.section, 'L34');
   assert.equal(e.row, '16', '"L34 • Row 16" splits into section and row');
   assert.equal(S.saleFromApi({ SaleId: '' }), null);
+});
+
+test('saleFromApi keeps viagogo\'s Seats, whatever shape they come in', () => {
+  const seats = v => S.saleFromApi(Object.assign({}, API[2], { Seats: v })).seats;
+  assert.equal(seats('1-4'), '1-4');
+  assert.equal(seats(' 1,  2, 3 '), '1, 2, 3');
+  assert.equal(seats(12), '12');
+  assert.equal(seats(['14', 15, '']), '14, 15', 'a list is joined');
+  assert.equal(seats(null), '');
+  assert.equal(seats({ From: 1 }), '', 'an object is not seats');
+  assert.equal(seats('9'.repeat(200)).length, 80);
 });
 
 test('paid is Status "Complete"; "Get Paid" is not paid yet', () => {

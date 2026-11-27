@@ -15,7 +15,8 @@
  *   the whole sale, not per ticket. Status "Complete" is paid, "Get Paid" is not
  *   paid yet — every card says "Completed" either way.
  *   The response also carries the buyer's name, email and phone: saleFromApi
- *   copies only the fields below, so none of it is ever kept.
+ *   copies only the fields below, so none of it is ever kept. Seats is kept
+ *   so the app can tell which of a listing's tickets a sale took.
  * ------------------------------------------------------------------ */
 (function (root) {
   'use strict';
@@ -53,6 +54,12 @@
     return { section: str(m[1] || raw, 40), row: str(x.Row || x.RowName || m[2] || '', 20) };
   }
 
+  /* viagogo's Seats ("1-4", "1, 2, 3"), as given: a list is joined, nothing is "" */
+  function seatsOf(v) {
+    if (Array.isArray(v)) return str(v.map(s => str(s, 20)).filter(Boolean).join(', '), 80);
+    return v && typeof v === 'object' ? '' : str(v, 80);
+  }
+
   /* one sale from the endpoint -> only what Seat Tracker keeps, or null */
   function saleFromApi(x) {
     if (!x) return null;
@@ -70,6 +77,7 @@
       when,
       venue: str(x.VenueDescription || x.VenueName || x.Venue || '', 120).replace(/\bnull\b,?\s*/g, '').replace(/,\s*,/g, ','),
       section, row,
+      seats: seatsOf(x.Seats),
       tickets: num(x.Quantity),
       currency: currencyOf(x),
       amount: num(x.TotalPayout),
