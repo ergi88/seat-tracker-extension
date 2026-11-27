@@ -1503,24 +1503,28 @@ async function saveBuyAccount(fields, userId) {
 /* Purchases of yours, from the eBileta checkout drawer: one per sector of
  * the order. Like the app: a purchase linked to a request makes it Bought
  * once its purchases cover its tickets, and gives it the price paid when it
- * has none typed. */
+ * has none typed. What it cost in lek (Spent) is filled at today's rate,
+ * marked auto: the app is where the bank's real charge is typed. */
 async function savePurchases(items, userId) {
   if (!userId) throw new Error('Sign in first.');
   const m = await model();
   const U = SK.util;
   const today = new Date().toISOString().slice(0, 10);
+  const override = SK.settings.normalize(m.team || {}).fxOverride;
   const rows = (items || []).map(it => {
     const account = (m.accounts || {})[it.accountId];
     if (!account || account.userId !== userId) throw new Error('Pick one of your buying accounts.');
     if (!m.events[it.eventKey]) throw new Error('Track this event first: a purchase belongs to a tracked event.');
     const r = it.requestId ? m.requests.find(x => x.id === it.requestId) : null;
+    const qty = U.clampInt(it.qty, 1, 1, 999);
+    const price = Number(it.price) > 0 ? Math.round(Number(it.price) * 100) / 100 : null;
+    const currency = SK.profit.CURRENCIES.includes(it.currency) ? it.currency : 'ALL';
     return {
       id: U.newId('p'), user_id: userId, account_id: account.id, event_key: it.eventKey,
       request_id: r && r.userId === userId ? r.id : null,
       sector_id: it.sectorId ? String(it.sectorId) : null,
-      qty: U.clampInt(it.qty, 1, 1, 999),
-      price: Number(it.price) > 0 ? Math.round(Number(it.price) * 100) / 100 : null,
-      currency: SK.profit.CURRENCIES.includes(it.currency) ? it.currency : 'ALL',
+      qty, price, currency,
+      spent_all: price ? SK.profit.lekAt(price * qty, currency, m.fx, override, Date.now()) : null, spent_auto: true,
       bought_on: today, order_ref: String(it.orderRef || '').trim(), notes: String(it.notes || '').trim()
     };
   });

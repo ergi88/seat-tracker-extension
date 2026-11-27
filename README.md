@@ -83,7 +83,9 @@ purchases:
 |---|---|
 | `tickets` | one per page of a PDF: its lot, page, sector as printed, row, seat, ticket number (once per person), price with the fee, when the event is, the viagogo sale that took it, and where its PDF is |
 | `listing_tickets` | which tickets a listing holds; kept once the listing ends, as history |
-| `purchases.frozen` | the lots there were when tickets came: they stay counted, read-only (set once, never again) |
+| `purchases.frozen` | the lots there were when tickets came: they stay counted, read-only (set once, never again), but for their Spent |
+| `purchases.spent_all`, `spent_auto` | what the bank charged for the lot, in lek; auto (at the rate of the day it was bought) until typed in the app |
+| `deposits`, `deposit_sales` | viagogo payouts that reached your bank, in both currencies with the bank's rate (worked out by the database), and the sales each paid: one currency per deposit, a sale in one deposit at most |
 | `listings.market` | `viagogo` (every listing the extension reads) or `stubhub` (IDs `sh:…`, later) |
 | `sales.seats` | viagogo's Seats on the sale (`1-4`) |
 | Storage bucket `tickets` | private, one PDF per ticket under `<your id>/`, only you can read or write your folder; the app deletes a PDF 7 days after its event |
@@ -118,7 +120,7 @@ Everyone signs in with their own account. What that changes:
 | auto-check intervals | your defaults for new requests | the PC's name |
 | viagogo sell prices per section, exchange rates | your viagogo listings, payouts and profits | |
 | viagogo's "just sold" sales (last sales) | your viagogo sales and their profit | |
-| the price list per sector, buy limits per site and event | your buying accounts, purchases, their tickets and PDFs | |
+| the price list per sector, buy limits per site and event | your buying accounts, purchases, their tickets and PDFs, your deposits | |
 | the update link | your saved viagogo event scans | |
 
 **Requests are judged one by one, never added up.** If you want 5 seats in E105 and someone else
@@ -281,10 +283,19 @@ On my.viagogo.com/listings every card of yours has a **Buy** box in its money co
 with no request or of an event Seat Tracker does not track: type what one ticket cost (saved when you
 leave the box) and the card shows the profit and the win rate. Empty clears it.
 
-**Lek.** viagogo prices (USD), Posttick (€) and eFinity (RSD) convert to lek at the rate of the day
-they were read. The rates come once a day from [ExchangeRate-API](https://www.exchangerate-api.com)
-and are stored for the whole team; **Settings → Money** shows them and lets you type a rate to fix it.
-A listing in an unrecognised currency shows no profit rather than a guessed one.
+**Lek.** Money is worth lek at three moments, kept apart:
+
+1. **Bought:** what the bank charged for a lot (its **Spent**), kept in lek on the lot. It is typed in
+   the app; until then it is the lot's price at the rate of the day it was bought.
+2. **Live:** today's rate, for whatever is not settled yet: your listings, sales whose money is not in
+   your bank yet, and a buy price that only estimates (no lot behind it).
+3. **Deposited:** what your bank credited for a viagogo payout (a **deposit**, recorded in the app), in
+   both currencies with its own rate. A sale in a deposit counts its share of it, fee and all.
+
+The rates come once a day from [ExchangeRate-API](https://www.exchangerate-api.com) and are stored for
+the whole team, for good, so any day's rate can be found; **Settings → Money** shows them and lets you
+type a rate to fix **today's** (live) rate. A day gone by keeps the rate saved for it. A listing in an
+unrecognised currency shows no profit rather than a guessed one.
 
 **The numbers.**
 
@@ -332,7 +343,9 @@ Buyer names, emails and phone numbers in that list are never saved.
 - **Every sale** shows its date, section, tickets, row, sale number, buy price, what it sold for and
   its profit with its own win rate: `+2,640 L (x1.4)`. Under it: `spent 6,000 + profit +2,640 = you
   get 8,640 L`. A sale viagogo has not paid yet is marked **not paid yet** (viagogo's cards say
-  "Completed" either way, so this comes from the sale's status).
+  "Completed" either way, so this comes from the sale's status). A sale whose money reached your bank
+  (a deposit, recorded in the app) is marked **in bank** and counts what the bank credited for it; the
+  others count at today's rate. Hover a sale for the rate.
 - **Buy price.** It comes from the listing, else the request, else the sector's price. A section
   whose sales have none gets a box: type one price and **Save** puts it on all of them.
 - **Seats.** A sale keeps viagogo's Seats (`1-4`), so the app can mark which of a listing's tickets
@@ -511,7 +524,8 @@ every ticket with its last name, first name, birth date and email. Pick one of y
 type in the **All tickets** row, then **Apply to all**, or change one ticket in its own row. **+ New
 account** saves another email you buy with. It only fills eBileta's boxes: nothing is sent until you
 pay. **Add purchase** records the order in the buy tracker: the account, one purchase per sector at
-the price paid with the fee, the order code, and the request it fills.
+the price paid with the fee, the order code, and the request it fills. Its **Spent** (what it cost in
+lek) is filled at today's rate, marked auto; type what the bank really charged on the lot in the app.
 
 **The buy tracker** itself (accounts, lots, tickets left per account against the site's limit,
 the price list, and the inventory: lots put on listings, tickets still to buy) lives in the app; see [the app's README](../seat-tracker-app/README.md#buying).

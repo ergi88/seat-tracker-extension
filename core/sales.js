@@ -89,26 +89,66 @@
 
   const isPaid = s => /^complete/i.test(String((s && s.status) || ''));
 
-  /* One sale's money in lek, at the rates of the day it sold.
-   * buy = { amount, currency } per ticket, or null.
-   * -> { missing: null | 'sale' | 'rate' | 'buy', payoutL, costL, profitL, winRate } */
-  function saleMoney(sale, buy, rates) {
+  /* One sale's money in lek.
+   * buy = { amount, currency, lek? } per ticket, or null. lek is what one
+   *   ticket really cost in lek (its lot's Spent): taken as it is. Without
+   *   it, the amount converts at `rates`.
+   * got = { lek, rate, on, depositId } once its payout is in the bank (its
+   *   share of a deposit): that lek, settled. Without it, the payout converts
+   *   at `rates`: pass the live (today's) rates, since it is not settled yet.
+   * -> { missing: null | 'sale' | 'rate' | 'buy', payoutL, costL, profitL, winRate,
+   *      deposited, payoutRate } */
+  function saleMoney(sale, buy, rates, got) {
     const P = SK.profit;
     const tickets = Number(sale && sale.tickets) || 0;
     if (!(Number(sale && sale.amount) > 0) || !tickets) return { missing: 'sale' };
-    const sellRate = P.rateOf(rates, sale.currency || 'USD');
-    if (!sellRate) return { missing: 'rate', currency: sale.currency };
-    const payoutL = sale.amount * sellRate;
-    if (!buy || !(Number(buy.amount) > 0)) return { missing: 'buy', payoutL };
-    const buyRate = P.rateOf(rates, buy.currency || P.BASE);
-    if (!buyRate) return { missing: 'rate', currency: buy.currency, payoutL };
-    const costL = buy.amount * buyRate * tickets;
-    return { missing: null, payoutL, costL, profitL: payoutL - costL, winRate: costL > 0 ? payoutL / costL : null };
+    const deposited = !!(got && Number(got.lek) > 0);
+    let payoutL;
+    if (deposited) payoutL = Number(got.lek);
+    else {
+      const sellRate = P.rateOf(rates, sale.currency || 'USD');
+      if (!sellRate) return { missing: 'rate', currency: sale.currency };
+      payoutL = sale.amount * sellRate;
+    }
+    const paid = { payoutL, deposited, payoutRate: deposited && Number(got.rate) > 0 ? Number(got.rate) : payoutL / sale.amount };
+    const kept = buy && Number(buy.lek) > 0;
+    if (!buy || !(kept || Number(buy.amount) > 0)) return Object.assign({ missing: 'buy' }, paid);
+    let costL;
+    if (kept) costL = Number(buy.lek) * tickets;
+    else {
+      const buyRate = P.rateOf(rates, buy.currency || P.BASE);
+      if (!buyRate) return Object.assign({ missing: 'rate', currency: buy.currency }, paid);
+      costL = buy.amount * buyRate * tickets;
+    }
+    return Object.assign({ missing: null, costL, profitL: payoutL - costL, winRate: costL > 0 ? payoutL / costL : null }, paid);
+  }
+
+  /* What each deposited sale brought in lek: its share of its deposit, in
+   * proportion to the sales' payouts, so a fee comes off each in proportion.
+   * deposits: [{ id, currency, amount, amountAll, receivedOn, bank }] (or by id);
+   * links: [{ depositId, saleId }]; sales: [sale] (or by id).
+   * -> { [saleId]: { lek, rate, on, depositId, bank } }; rate is the bank's own */
+  function depositShares(deposits, links, sales) {
+    const list = x => (Array.isArray(x) ? x : Object.values(x || {}));
+    const saleById = {};
+    for (const s of list(sales)) if (s && s.id) saleById[s.id] = s;
+    const of = {};
+    for (const k of links || []) if (saleById[k.saleId]) (of[k.depositId] = of[k.depositId] || []).push(saleById[k.saleId]);
+    const out = {};
+    for (const d of list(deposits)) {
+      const paid = of[d.id] || [];
+      if (!paid.length || !(Number(d.amountAll) > 0)) continue;
+      const parts = SK.profit.splitLek(Number(d.amountAll), paid.map(s => Number(s.amount) || 0));
+      const rate = Number(d.amount) > 0 ? Number(d.amountAll) / Number(d.amount) : null;
+      paid.forEach((s, i) => { out[s.id] = { lek: parts[i], rate, on: d.receivedOn || '', depositId: d.id, bank: d.bank || '' }; });
+    }
+    return out;
   }
 
   function emptySum() {
-    /* sold: what the sales paid, in the currency viagogo paid it in — { USD: 162 } */
-    return { sales: 0, tickets: 0, payoutL: 0, costL: 0, profitL: 0, counted: 0, noBuy: 0, noRate: 0, unpaid: 0, unpaidL: 0, sold: {} };
+    /* sold: what the sales paid, in the currency viagogo paid it in — { USD: 162 }
+     * banked: sales whose payout is in the bank (a deposit), bankedL its lek */
+    return { sales: 0, tickets: 0, payoutL: 0, costL: 0, profitL: 0, counted: 0, noBuy: 0, noRate: 0, unpaid: 0, unpaidL: 0, banked: 0, bankedL: 0, sold: {} };
   }
   function addTo(sum, s) {
     const m = s.money || {};
@@ -116,6 +156,7 @@
     sum.tickets += Number(s.tickets) || 0;
     if (Number(s.amount) > 0) { const c = s.currency || 'USD'; sum.sold[c] = Math.round(((sum.sold[c] || 0) + Number(s.amount)) * 100) / 100; }
     if (Number.isFinite(m.payoutL)) sum.payoutL += m.payoutL;
+    if (m.deposited) { sum.banked++; sum.bankedL += m.payoutL; }
     if (!isPaid(s)) { sum.unpaid++; if (Number.isFinite(m.payoutL)) sum.unpaidL += m.payoutL; }
     if (m.missing === null) { sum.counted++; sum.costL += m.costL; sum.profitL += m.profitL; }
     else if (m.missing === 'buy') sum.noBuy++;
@@ -174,7 +215,7 @@
     };
   }
 
-  SK.sales = { isSalesPage, apiUrl, listOf, totalOf, saleFromApi, isPaid, saleMoney, groupSales, stopRule };
+  SK.sales = { isSalesPage, apiUrl, listOf, totalOf, saleFromApi, isPaid, saleMoney, depositShares, groupSales, stopRule };
 
   if (typeof module === 'object' && module.exports) module.exports = SK;
 })(globalThis);

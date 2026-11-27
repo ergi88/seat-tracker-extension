@@ -49,7 +49,9 @@ const EMPTY_MIRROR = {
   teamPrices: {},      // listingId -> { userId, eventKey, sectorId, price, currency, tickets, status } (no payout)
   fx: {},              // 'YYYY-MM-DD' -> { USD: lek per dollar, EUR, RSD, GBP }
   accounts: {},        // id -> this person's buying account { email, firstName, lastName, birthday, notes }
-  purchases: {},       // id -> this person's purchase { accountId, eventKey, requestId, sectorId, qty, price, orderRef, … }
+  purchases: {},       // id -> this person's purchase { accountId, eventKey, requestId, sectorId, qty, price, spentAll, orderRef, … }
+  deposits: {},        // id -> this person's payout that reached the bank { receivedOn, currency, amount, amountAll, rate, bank }
+  depositSales: [],    // [{ depositId, saleId }]: the sales each deposit paid
   sectorPrices: {},    // eventKey -> sectorId -> { amount, currency } — the team's price list, typed in the app
   lastSales: {},       // id -> a sale viagogo's "just sold" toast showed on a sell page (the team's)
   fingerprints: {}

@@ -86,11 +86,23 @@ const Remote = (() => {
     id: r.id, userId: r.user_id, email: r.email || '', firstName: r.first_name || '', lastName: r.last_name || '',
     birthday: r.birthday ? String(r.birthday).slice(0, 10) : '', notes: r.notes || ''
   });
+  /* spentAll: what the bank charged for the lot, in lek (null: not known);
+   * spentAuto: filled at the rate of the day it was bought, not typed */
   const toPurchase = r => ({
     id: r.id, userId: r.user_id, accountId: r.account_id, eventKey: r.event_key, requestId: r.request_id || null,
     sectorId: r.sector_id || null, qty: Number(r.qty) || 1, price: numOr(r.price), currency: r.currency || 'ALL',
-    boughtOn: r.bought_on ? String(r.bought_on).slice(0, 10) : '', orderRef: r.order_ref || '', notes: r.notes || ''
+    boughtOn: r.bought_on ? String(r.bought_on).slice(0, 10) : '', orderRef: r.order_ref || '', notes: r.notes || '',
+    spentAll: numOr(r.spent_all), spentAuto: r.spent_auto !== false
   });
+
+  /* a payout that reached the bank, in both currencies, and the sales it paid
+   * (owner-only rows, typed in the app) */
+  const toDeposit = r => ({
+    id: r.id, userId: r.user_id, receivedOn: r.received_on ? String(r.received_on).slice(0, 10) : '', currency: r.currency || 'USD',
+    amount: numOr(r.amount), amountAll: numOr(r.amount_all), allAuto: r.all_auto === true, rate: numOr(r.rate),
+    bank: r.bank || '', notes: r.notes || ''
+  });
+  const toDepositSale = r => ({ depositId: String(r.deposit_id), saleId: String(r.sale_id) });
 
   /* the team's price list: what a ticket costs in one sector, typed in the app */
   const toSectorPrice = r => ({ amount: Number(r.amount), currency: r.currency || 'ALL', updatedAt: time(r.updated_at) });
@@ -144,7 +156,14 @@ const Remote = (() => {
       put: (m, r) => { (m.sectorPrices[r.event_key] = m.sectorPrices[r.event_key] || {})[r.sector_id] = toSectorPrice(r); } },
     /* optional too: a database without the last-sales table syncs everything else */
     { name: 'lastSales', table: 'vg_last_sales', ts: 'updated_at', optional: true, clear: m => { m.lastSales = {}; },
-      put: (m, r) => { (m.lastSales = m.lastSales || {})[String(r.id)] = toLastSale(r); } }
+      put: (m, r) => { (m.lastSales = m.lastSales || {})[String(r.id)] = toLastSale(r); } },
+    /* optional: payouts that reached the bank (recorded in the app), so a
+     * sale's money is what really came; a deleted one goes (idCol) */
+    { name: 'deposits', table: 'deposits', ts: 'updated_at', optional: true, clear: m => { m.deposits = {}; },
+      put: (m, r) => { (m.deposits = m.deposits || {})[r.id] = toDeposit(r); },
+      idCol: 'id', keep: (m, ids) => { for (const k of Object.keys(m.deposits || {})) if (!ids.has(k)) delete m.deposits[k]; } },
+    { name: 'depositSales', table: 'deposit_sales', select: 'deposit_id,sale_id', optional: true,
+      replace: (m, rows) => { m.depositSales = (rows || []).map(toDepositSale); } }
   ];
   const specOf = name => SPECS.find(s => s.name === name);
 
@@ -157,6 +176,7 @@ const Remote = (() => {
     for (const key of Object.keys(m.health)) if (!m.events[key]) delete m.health[key];
     for (const [id, p] of Object.entries(m.purchases || {})) if ((p.eventKey && !m.events[p.eventKey]) || !(m.accounts || {})[p.accountId]) delete m.purchases[id];
     for (const key of Object.keys(m.sectorPrices || {})) if (!m.events[key]) delete m.sectorPrices[key];
+    if (m.depositSales) m.depositSales = m.depositSales.filter(k => (m.deposits || {})[k.depositId]);
   }
 
   async function applyRows(name, rows) {
@@ -313,7 +333,11 @@ const Remote = (() => {
 
   async function insertPurchases(rows) {
     if (!rows.length) return [];
-    const out = await Supa.rest('POST', 'purchases', { body: rows, prefer: 'return=representation' });
+    /* a database that has not run the schema with Spent yet: saved without it */
+    const out = await Supa.rest('POST', 'purchases', { body: rows, prefer: 'return=representation' }).catch(e => {
+      if (!/spent_(all|auto)/i.test(String(e && e.message))) throw e;
+      return Supa.rest('POST', 'purchases', { body: rows.map(({ spent_all, spent_auto, ...r }) => r), prefer: 'return=representation' });
+    });
     await applyRows('purchases', out);
     return (out || []).map(toPurchase);
   }

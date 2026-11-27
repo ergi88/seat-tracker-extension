@@ -695,22 +695,27 @@ function sectorPriceOf(m, ev, sec, me) {
   return paid ? { amount: paid.price, currency: paid.currency, source: 'paid', range: null } : null;
 }
 
-/* This person's sales, each with what one ticket cost and the profit in lek
- * at the rates of the day it sold. The buy price is found as for a listing:
- * typed on the listing, then the request's, then the sector's price — and
- * last, a price typed on the sale's section in the sales sidebar. */
+/* This person's sales, each with what one ticket cost and the profit in lek.
+ * What a sale paid: once it reached the bank, its share of the deposit (as
+ * typed in the app, settled); until then, at today's rate (live). The buy
+ * price is found as for a listing: typed on the listing, then the request's,
+ * then the sector's price — and last, a price typed on the sale's section in
+ * the sales sidebar. With no lot behind it, it is an estimate: today's rate too. */
 function salesOf(m, me) {
-  return Object.values(m.sales || {}).filter(s => s.userId === me).map(s => {
+  const live = ratesAt(m, Date.now());
+  const mine = Object.values(m.sales || {}).filter(s => s.userId === me);
+  const got = SK.sales.depositShares(m.deposits, m.depositSales, mine);
+  return mine.map(s => {
     const l = s.listingId ? m.listings[s.listingId] : null;
     const r = s.listingId ? m.requests.find(x => x.userId === me && x.listing === s.listingId) : null;
     const ev = m.events[r ? r.eventKey : (l && l.eventKey) || s.eventKey] || null;
     const sectorId = r ? r.sec : (l && l.sectorId) || s.sectorId;
     let buy = ev && sectorId ? buyOf(m, r, ev, sectorId, l) : l ? SK.profit.buyPriceOf({ listing: l }) : null;
     if (!buy && Number(s.buyPrice) > 0) buy = { amount: s.buyPrice, currency: s.buyCurrency || 'ALL', source: 'typed on the section' };
-    const at = ratesAt(m, Date.parse(s.soldOn) || s.seenAt);
+    const g = got[s.id] || null;
     return Object.assign({}, s, {
       eventNum: ev ? ev.num : null, eventTitle: ev ? SK.util.eventInfo(ev).name : '', requestNum: r ? r.num : null,
-      buy, money: Object.assign(SK.sales.saleMoney(s, buy, at.rates), { rateDay: at.day })
+      buy, money: Object.assign(SK.sales.saleMoney(s, buy, live.rates, g), { rateDay: g ? g.on : live.day })
     });
   });
 }
@@ -774,9 +779,10 @@ async function vgUnblock() {
   return true;
 }
 
-/* one listing's profit against a buy price, at the rates of the day it was read */
+/* one listing's profit against a buy price, at today's rate: nothing of it
+ * is settled yet (live) */
 function moneyOf(m, listing, buy) {
-  const at = ratesAt(m, listing.seenAt);
+  const at = ratesAt(m, Date.now());
   return Object.assign(SK.profit.profitOf(listing, buy, at.rates), {
     rateDay: at.day, manualRates: at.manual,
     listing: {

@@ -1154,8 +1154,8 @@
       rates.append(ui.labelled(`Lek per ${c}`, input));
     }
     mo.append(rates, ui.el('p', 'note', fx.day
-      ? `Daily rates of ${fx.day} by ExchangeRate-API. Leave a box empty to use them; type a rate to fix it for the team.`
-      : 'No daily rates yet — they are fetched on the next sync. Type a rate to use it now.'));
+      ? `Daily rates of ${fx.day} by ExchangeRate-API. Leave a box empty to use them; type a rate to fix today's (live) rate for the team. Past days keep their own rate, and lots and bank deposits keep the lek you really paid and got.`
+      : 'No daily rates yet — they are fetched on the next sync. Type a rate to use it now, as today\'s rate.'));
     box.append(mo);
 
     /* defaults for new requests (yours) */

@@ -616,6 +616,92 @@ begin
   return new;
 end $$;
 
+-- ------------------------------------------------------------ money in lek
+-- Money is worth lek at three moments, and two of them are kept here:
+--   bought     what the bank charged for a lot (purchases.spent_all)
+--   live       today's rate, for whatever is not settled yet (worked out, not kept)
+--   deposited  what reached the bank for a payout (deposits), in both
+--              currencies, so its rate is the bank's own
+--
+--   spent_all   a lot's total in lek, bank fees included; its tickets share it
+--               in proportion to their own prices (null: not known, worked
+--               out at the rate of the day it was bought)
+--   spent_auto  true: filled at the rate of the day it was bought, and filled
+--               again when the lot changes; false: typed (as charged), never
+--               changed on its own
+alter table public.purchases add column if not exists spent_all  numeric;
+alter table public.purchases add column if not exists spent_auto boolean not null default true;
+
+-- A payout that reached the bank, in both currencies: the amount that came
+-- (in the currency viagogo paid out in) and the lek the bank credited for it.
+-- Their owner's alone, like sales.
+--   received_on  the day it reached the bank
+--   amount       what came, in currency: the sales' payouts, less any fee
+--   amount_all   the lek the bank credited
+--   all_auto     true: amount_all was filled at the day's rate, not typed
+--   rate         lek per unit: the bank's own rate for this payout
+--   bank         which account it reached, as you name it ("BKT USD")
+create table if not exists public.deposits (
+  id          text primary key,
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  received_on date not null default current_date,
+  currency    text not null,
+  amount      numeric not null check (amount > 0),
+  amount_all  numeric not null check (amount_all > 0),
+  all_auto    boolean not null default false,
+  rate        numeric generated always as (amount_all / nullif(amount, 0)) stored,
+  bank        text not null default '',
+  notes       text not null default '',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists deposits_by_day on public.deposits (user_id, received_on desc);
+
+-- the sales a deposit paid: one deposit can pay several sales, and a sale is
+-- paid into one deposit at most. Each sale's lek is its share of the deposit,
+-- in proportion to its payout.
+create table if not exists public.deposit_sales (
+  deposit_id text not null references public.deposits (id) on delete cascade,
+  sale_id    text not null references public.sales (sale_id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (deposit_id, sale_id)
+);
+create unique index if not exists deposit_sales_one on public.deposit_sales (sale_id);
+
+-- A sale goes into its owner's own deposit, paid in the deposit's currency.
+-- The reads see only the caller's rows (RLS), so someone else's is "not found".
+create or replace function public.check_deposit_sale() returns trigger
+language plpgsql as $$
+declare d record; s record;
+begin
+  select user_id, currency into d from public.deposits where id = new.deposit_id;
+  if not found or d.user_id <> new.user_id then
+    raise exception 'deposit_not_yours: deposit % is not yours', new.deposit_id;
+  end if;
+  select user_id, currency into s from public.sales where sale_id = new.sale_id;
+  if not found or s.user_id <> new.user_id then
+    raise exception 'sale_not_yours: sale % is not yours', new.sale_id;
+  end if;
+  if s.currency <> d.currency then
+    raise exception 'deposit_currency: sale % was paid in %, the deposit is in %', new.sale_id, s.currency, d.currency;
+  end if;
+  return new;
+end $$;
+
+-- a deposit keeps the currency its sales were paid in
+create or replace function public.check_deposit() returns trigger
+language plpgsql as $$
+begin
+  if new.currency is distinct from old.currency and exists (
+    select 1 from public.deposit_sales x join public.sales s on s.sale_id = x.sale_id
+    where x.deposit_id = new.id and s.currency <> new.currency) then
+    raise exception 'deposit_currency: deposit % pays sales in %', new.id, old.currency;
+  end if;
+  return new;
+end $$;
+
 -- the PDFs: a private bucket, one file per ticket under its owner's folder.
 -- Skipped where there is no Storage (the PGlite test stands one in).
 do $$ begin
@@ -642,6 +728,14 @@ drop trigger if exists listing_tickets_check on public.listing_tickets;
 create trigger listing_tickets_check before insert or update on public.listing_tickets
   for each row execute function public.check_listing_ticket();
 
+drop trigger if exists deposit_sales_check on public.deposit_sales;
+create trigger deposit_sales_check before insert or update on public.deposit_sales
+  for each row execute function public.check_deposit_sale();
+
+drop trigger if exists deposits_check on public.deposits;
+create trigger deposits_check before update on public.deposits
+  for each row execute function public.check_deposit();
+
 drop trigger if exists vg_scans_keep_two on public.vg_scans;
 create trigger vg_scans_keep_two after insert on public.vg_scans
   for each row execute function public.keep_two_vg_scans();
@@ -657,7 +751,7 @@ create trigger requests_num before insert on public.requests
 do $$
 declare t text;
 begin
-  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales', 'tickets', 'listing_tickets'] loop
+  foreach t in array array['team_settings', 'profiles', 'events', 'requests', 'request_state', 'event_health', 'catalog', 'leases', 'listings', 'sales', 'fx_rates', 'buy_accounts', 'purchases', 'sector_prices', 'vg_last_sales', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before update on public.%I for each row execute function public.touch_updated_at()', t);
   end loop;
@@ -709,6 +803,8 @@ returns jsonb language sql stable as $$
     'vgScans',  (select concat(max(created_at), '|', count(*)) from public.vg_scans where user_id = auth.uid()),
     'tickets',  (select concat(max(updated_at), '|', count(*)) from public.tickets where user_id = auth.uid()),
     'ticketLinks', (select concat(max(updated_at), '|', count(*)) from public.listing_tickets where user_id = auth.uid()),
+    'deposits', (select concat(max(updated_at), '|', count(*)) from public.deposits where user_id = auth.uid()),
+    'depositSales', (select concat(max(updated_at), '|', count(*)) from public.deposit_sales where user_id = auth.uid()),
     'alerts',   (select coalesce(max(id), 0) from public.alerts where user_id = auth.uid())
   )
 $$;
@@ -718,7 +814,8 @@ returns void language sql as $$
   delete from public.alerts where created_at < now() - interval '7 days';
   delete from public.handled_commands where handled_at < now() - interval '2 days';
   delete from public.leases where expires_at < now() - interval '1 day';
-  delete from public.fx_rates where day < current_date - 180;
+  -- exchange rates are kept for good: one small row a day, and any day a lot
+  -- was bought on or a payout came may need its rate
   delete from public.listings where seen_at < now() - interval '120 days';
   delete from public.vg_last_sales where last_seen < now() - interval '180 days';
   delete from public.vg_scans where scanned_at < now() - interval '120 days';
@@ -756,11 +853,12 @@ create policy own_sales on public.sales for all to authenticated
   with check (public.is_member() and user_id = auth.uid());
 
 -- buying accounts (names, birthdays), purchases, their tickets and the listings
--- those are on, and saved viagogo scans: their owner's alone
+-- those are on, saved viagogo scans, and deposits with the sales they paid:
+-- their owner's alone
 do $$
 declare t text;
 begin
-  foreach t in array array['buy_accounts', 'purchases', 'vg_scans', 'tickets', 'listing_tickets'] loop
+  foreach t in array array['buy_accounts', 'purchases', 'vg_scans', 'tickets', 'listing_tickets', 'deposits', 'deposit_sales'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format('create policy own_rows on public.%I for all to authenticated using (public.is_member() and user_id = auth.uid()) with check (public.is_member() and user_id = auth.uid())', t);
@@ -778,7 +876,8 @@ revoke insert, update, delete on public.team_prices from authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.is_member(), public.claim_lease(text, text, int), public.release_lease(text, text),
   public.sync_status(), public.cleanup_old(), public.touch_updated_at(), public.assign_event_num(),
-  public.assign_request_num(), public.check_ticket(), public.check_listing_ticket() to authenticated;
+  public.assign_request_num(), public.check_ticket(), public.check_listing_ticket(),
+  public.check_deposit_sale(), public.check_deposit() to authenticated;
 
 -- ------------------------------------------------------------ the team
 -- Who is on the team lives in supabase/team.sql, kept off GitHub because it

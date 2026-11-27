@@ -37,14 +37,41 @@ test('eBileta price block, in the seat page and as page text', () => {
   assert.equal(SK.ebileta.parseSeats('<html>var posti = [ ];</html>').price, null);
 });
 
-test('rates: the day it was read, else the closest earlier day; manual rates win', () => {
+test('rates: the day it was read, else the closest earlier day; manual rates win for today only', () => {
   const fx = { '2026-09-15': { USD: 80 }, '2026-09-17': { USD: 83.36, EUR: 97.5 } };
-  assert.deepEqual(P.pickRates(fx, {}, Date.parse('2026-09-16T12:00:00Z')), { rates: { USD: 80 }, day: '2026-09-15', manual: [] });
-  assert.equal(P.pickRates(fx, {}, Date.parse('2026-09-17T08:00:00Z')).rates.EUR, 97.5);
-  assert.equal(P.pickRates(fx, {}, Date.parse('2026-09-01T08:00:00Z')).day, '2026-09-15');
-  assert.deepEqual(P.pickRates(fx, { USD: 90, EUR: 0 }, Date.parse('2026-09-17T08:00:00Z')).manual, ['USD']);
+  const NOW = Date.parse('2026-09-17T15:00:00Z');
+  assert.deepEqual(P.pickRates(fx, {}, Date.parse('2026-09-16T12:00:00Z'), NOW), { rates: { USD: 80 }, day: '2026-09-15', manual: [] });
+  assert.equal(P.pickRates(fx, {}, Date.parse('2026-09-17T08:00:00Z'), NOW).rates.EUR, 97.5);
+  assert.equal(P.pickRates(fx, {}, Date.parse('2026-09-01T08:00:00Z'), NOW).day, '2026-09-15');
+  const today = P.pickRates(fx, { USD: 90, EUR: 0 }, Date.parse('2026-09-17T08:00:00Z'), NOW);
+  assert.deepEqual(today.manual, ['USD']);
+  assert.equal(today.rates.USD, 90, 'a manual rate is the live rate');
+  const past = P.pickRates(fx, { USD: 90 }, Date.parse('2026-09-16T08:00:00Z'), NOW);
+  assert.deepEqual([past.rates.USD, past.manual], [80, []], 'a day gone by keeps the rate saved for it');
   assert.equal(P.rateOf({}, 'ALL'), 1);
   assert.equal(P.rateOf({}, 'USD'), null);
+});
+
+test('money kept in lek: filled at the rate of its day, shared out in proportion', () => {
+  const fx = { '2026-09-01': { EUR: 99 }, '2026-10-01': { EUR: 96 } };
+  const NOW = Date.parse('2026-11-27T10:00:00Z');
+  assert.equal(P.lekAt(210, 'EUR', fx, {}, Date.parse('2026-10-05'), NOW), 20160, '3 × 70 € bought on 5 Oct: the rate of 1 Oct');
+  assert.equal(P.lekAt(70, 'EUR', fx, {}, Date.parse('2026-08-01'), NOW), 6930, 'bought before any saved day: the oldest');
+  assert.equal(P.lekAt(70, 'EUR', fx, { EUR: 100 }, NOW, NOW), 7000, 'bought today: the manual rate, which is the live one');
+  assert.equal(P.lekAt(5150, 'ALL', fx, {}, NOW, NOW), 5150);
+  assert.equal(P.lekAt(0, 'EUR', fx, {}, NOW, NOW), null, 'no price, no lek');
+  assert.equal(P.lekAt(10, 'GBP', fx, {}, NOW, NOW), null, 'no rate, no lek');
+
+  near(P.splitLek(9600, [40, 60])[0], 3840);
+  assert.deepEqual(P.splitLek(9000, [0, 0, 0]), [3000, 3000, 3000], 'no prices: equal shares');
+  /* a ticket with no price counts as the others' average: 40, (45), 50 */
+  P.splitLek(9000, [40, 0, 50]).forEach((x, i) => near(x, 9000 * [40, 45, 50][i] / 135));
+  near(P.splitLek(9000, [40, 0, 50]).reduce((a, b) => a + b, 0), 9000);
+  assert.deepEqual(P.splitLek(100, []), []);
+
+  assert.equal(P.rateText(70, 6500, 'EUR'), '92.86 L per €');
+  assert.equal(P.rateText(1000, 830, 'RSD'), '0.8300 L per RSD');
+  assert.equal(P.rateText(100, 100, 'ALL'), '');
 });
 
 test('buy price per site', () => {

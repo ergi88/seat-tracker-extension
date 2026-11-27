@@ -1433,11 +1433,13 @@
       li.append(sg);
     }
     if (!SK.sales.isPaid(s)) li.append(ui.el('span', 'pill st-LOW', 'not paid yet'));
+    else if (m.deposited) li.append(ui.el('span', 'pill st-OK', 'in bank'));
     li.title = [
       `Sale ${s.id}${s.listingId ? ` · listing ${s.listingId}` : ''}${s.requestNum ? ` · request #${s.requestNum}` : ''}`,
       s.buy ? `Bought at ${P.formatMoney(s.buy.amount, s.buy.currency)} a ticket (${s.buy.source})` : 'No buy price known',
       m.missing === null ? `Sold ${lek(m.payoutL)} − spent ${lek(m.costL)} = ${lek(m.profitL, true)}` : '',
-      m.rateDay ? `Lek at the rates of ${m.rateDay}` : ''
+      m.deposited ? `In the bank on ${m.rateDay}, at ${P.rateText(s.amount, m.payoutL, s.currency) || 'its deposit\'s rate'} (fees included)`
+        : m.rateDay ? `Lek at today's rate (${m.rateDay}): not in the bank yet` : ''
     ].filter(Boolean).join('\n');
     return li;
   }
@@ -1564,7 +1566,7 @@
     };
     tiles.append(
       t.counted ? tile(lek(t.profitL, true), `profit · ${P.winRateText(t.winRate).replace(/[()]/g, '')}`, profitCls(t.profitL), `Sold ${lek(t.payoutL)} − spent ${lek(t.costL)}, over the sales with a buy price`) : tile('—', 'no profit yet'),
-      tile(soldText(t.sold), `sold · ${t.tickets} tickets`, t.unpaid ? 'warn' : '', `${lek(t.payoutL)} in lek${t.unpaid ? ` · ${lek(t.unpaidL)} of it not paid yet` : ''}`),
+      tile(soldText(t.sold), `sold · ${t.tickets} tickets`, t.unpaid ? 'warn' : '', `${lek(t.payoutL)} in lek${t.banked ? ` · ${lek(t.bankedL)} of it in the bank (${t.banked} sale${t.banked === 1 ? '' : 's'})` : ''}${t.unpaid ? ` · ${lek(t.unpaidL)} of it not paid yet` : ''} · the rest at today's rate`),
       tile(t.counted ? lek(t.costL) : '—', `spent${t.noBuy ? ` · ${t.noBuy} no buy price` : ''}`, '', 'What the tickets cost you: buy price × tickets'),
       tile(t.counted ? lek(t.costL + t.profitL) : '—', 'you get · spent + profit', '', `Spent ${lek(t.costL)} + profit ${lek(t.profitL, true)}, over the sales with a buy price${t.unpaid ? ` · ${lek(t.unpaidL)} of all sales not paid yet` : ''}`)
     );

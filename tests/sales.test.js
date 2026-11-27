@@ -67,6 +67,34 @@ test('saleMoney: payout for the whole sale against the buy price of every ticket
   assert.equal(S.saleMoney(s, { amount: 30, currency: 'GBP' }, RATES).missing, 'rate');
 });
 
+test('saleMoney: a lot\'s kept lek is the cost as it is; a deposit\'s lek is the payout, settled', () => {
+  const s = S.saleFromApi(API[2]);                            // $172.80 for 2 tickets
+  const kept = S.saleMoney(s, { amount: 70, currency: 'EUR', lek: 6500 }, RATES);
+  assert.equal(kept.costL, 13000, 'what the bank charged, whatever today\'s EUR rate');
+  assert.equal(kept.deposited, false);
+  assert.equal(Math.round(kept.payoutL), 17280, 'not in the bank yet: the payout at the rates given (live)');
+  const got = S.saleMoney(s, { amount: 70, currency: 'EUR', lek: 6500 }, RATES, { lek: 14000, rate: 81.5, on: '2026-11-20', depositId: 'd1' });
+  assert.equal(got.payoutL, 14000, 'in the bank: the deposit\'s lek');
+  assert.equal(got.deposited, true);
+  assert.equal(got.payoutRate, 81.5);
+  assert.equal(got.profitL, 1000);
+  const noRate = S.saleMoney(Object.assign({}, s, { currency: 'GBP' }), null, RATES, { lek: 14000, rate: 90 });
+  assert.equal(noRate.missing, 'buy', 'a deposited sale needs no rate for its payout');
+  assert.equal(noRate.payoutL, 14000);
+});
+
+test('depositShares: a deposit\'s lek over its sales, by payout, fees off each in proportion', () => {
+  const sales = [{ id: 'a', amount: 200, currency: 'USD' }, { id: 'b', amount: 100, currency: 'USD' }, { id: 'c', amount: 50, currency: 'USD' }];
+  const deposits = [{ id: 'd1', currency: 'USD', amount: 295, amountAll: 24190, receivedOn: '2026-11-20', bank: 'BKT' }];
+  const links = [{ depositId: 'd1', saleId: 'a' }, { depositId: 'd1', saleId: 'b' }, { depositId: 'd1', saleId: 'gone' }];
+  const sh = S.depositShares(deposits, links, sales);
+  assert.deepEqual(Object.keys(sh).sort(), ['a', 'b'], 'only the sales in it, and only ones still there');
+  assert.ok(Math.abs(sh.a.lek - 24190 * 2 / 3) < 0.001 && Math.abs(sh.b.lek - 24190 / 3) < 0.001);
+  assert.equal(sh.a.rate, 82, 'the bank\'s own rate: 24,190 L for $295');
+  assert.deepEqual([sh.a.on, sh.a.depositId, sh.a.bank], ['2026-11-20', 'd1', 'BKT']);
+  assert.deepEqual(S.depositShares({ d1: deposits[0] }, links, { a: sales[0] }).a.lek, 24190, 'by id works too; the one sale takes it all');
+});
+
 test('groupSales: by event, newest first, then by section, with totals at every level', () => {
   const sales = API.map(S.saleFromApi).map(s => Object.assign(s, {
     money: S.saleMoney(s, s.section === 'S102' ? null : { amount: 2000, currency: 'ALL' }, RATES)
@@ -83,6 +111,7 @@ test('groupSales: by event, newest first, then by section, with totals at every 
   assert.equal(Math.round(alb.total.profitL), 8640 - 6000);
   assert.equal(Math.round(alb.total.payoutL), 8640 + 9000, 'paid counts every sale, with a buy price or not');
   assert.equal(g.total.tickets, 9);
+  assert.equal(g.total.banked, 0, 'nothing in the bank yet');
   assert.equal(Math.round(g.total.profitL), 2640 + 13280);
   assert.equal(Math.round(g.total.winRate * 100) / 100, Math.round(((8640 + 17280) / (6000 + 4000)) * 100) / 100);
 });

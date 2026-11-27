@@ -271,6 +271,56 @@ await db.query(`delete from public.listings where listing_id in ('14000000001', 
 await db.query(`delete from public.sales where sale_id = '8001'`);
 await db.query(`delete from public.buy_accounts where id in ('acc9', 'accb')`);
 
+console.log('\n== money in lek: what a lot cost, and deposits in both currencies');
+await as(A, `insert into public.buy_accounts (id, user_id, email) values ('accm', $1, 'money@example.com')`, [A]);
+await as(A, `insert into public.purchases (id, user_id, account_id, event_key, qty, price, currency) values ('pm1', $1, 'accm', 'ebileta:2153', 3, 70, 'EUR')`, [A]);
+const pm1 = (await as(A, `select spent_all, spent_auto from public.purchases where id = 'pm1'`)).rows[0];
+ok(pm1.spent_all === null && pm1.spent_auto === true, 'a new lot starts with no stored lek, marked auto', pm1);
+await as(A, `update public.purchases set spent_all = 19500, spent_auto = false where id = 'pm1'`);
+await db.exec(SCHEMA);
+const pm1b = (await as(A, `select spent_all, spent_auto from public.purchases where id = 'pm1'`)).rows[0];
+ok(Number(pm1b.spent_all) === 19500 && pm1b.spent_auto === false, 'what the bank charged, typed, stays when schema.sql runs again', pm1b);
+ok((await as(B, `select * from public.purchases where id = 'pm1'`)).rows.length === 0, 'a teammate never sees what you spent');
+
+await as(A, `insert into public.sales (sale_id, user_id, tickets, currency, amount, status) values ('9101', $1, 2, 'USD', 200, 'Complete'), ('9102', $1, 1, 'USD', 100, 'Complete'), ('9103', $1, 1, 'EUR', 90, 'Complete')`, [A]);
+await as(A, `insert into public.deposits (id, user_id, received_on, currency, amount, amount_all, bank) values ('d1', $1, '2026-11-20', 'USD', 295, 24190, 'BKT USD')`, [A]);
+const d1 = (await as(A, `select rate, all_auto from public.deposits where id = 'd1'`)).rows[0];
+ok(Number(d1.rate) === 82 && d1.all_auto === false, 'a deposit keeps both amounts, and its rate is the bank\'s own (24,190 L for $295 = 82)', d1);
+ok(/generated|cannot insert/i.test(await fails(A, `insert into public.deposits (id, user_id, currency, amount, amount_all, rate) values ('dx', $1, 'USD', 1, 80, 99)`, [A])), 'the rate is worked out, never typed');
+const dlink = (who, d, s) => as(who, 'insert into public.deposit_sales (deposit_id, sale_id) values ($1, $2)', [d, s]);
+await dlink(A, 'd1', '9101');
+await dlink(A, 'd1', '9102');
+ok((await as(A, `select count(*)::int n from public.deposit_sales where deposit_id = 'd1'`)).rows[0].n === 2, 'one deposit pays several sales');
+ok(/deposit_currency/.test(await err(dlink(A, 'd1', '9103'))), 'a sale paid in EUR goes into no USD deposit');
+await as(A, `insert into public.deposits (id, user_id, currency, amount, amount_all) values ('d2', $1, 'USD', 100, 8200)`, [A]);
+ok(/duplicate key/.test(await err(dlink(A, 'd2', '9101'))), 'a sale is paid into one deposit at most');
+ok(/check/.test(await fails(A, `insert into public.deposits (id, user_id, currency, amount, amount_all) values ('d3', $1, 'USD', 0, 1)`, [A])), 'a deposit\'s amounts are above 0');
+ok(/deposit_currency/.test(await err(as(A, `update public.deposits set currency = 'EUR' where id = 'd1'`))), 'a deposit keeps the currency its sales were paid in');
+ok((await err(as(A, `update public.deposits set amount_all = 24200, bank = 'BKT' where id = 'd1'`))) === '', 'its amounts and bank can be corrected');
+ok((await as(B, 'select * from public.deposits')).rows.length === 0 && (await as(B, 'select * from public.deposit_sales')).rows.length === 0, 'a teammate sees neither your deposits nor the sales they paid');
+ok(/row-level security/.test(await fails(B, `insert into public.deposits (id, user_id, currency, amount, amount_all) values ('db1', $1, 'USD', 1, 80)`, [A])), 'nobody files a deposit under someone else');
+await as(B, `insert into public.sales (sale_id, user_id, tickets, currency, amount) values ('9201', $1, 1, 'USD', 50)`, [B]);
+ok(/deposit_not_yours/.test(await err(dlink(B, 'd2', '9201'))), 'nobody puts a sale into someone else\'s deposit');
+await as(B, `insert into public.deposits (id, user_id, currency, amount, amount_all) values ('db2', $1, 'USD', 50, 4100)`, [B]);
+ok(/sale_not_yours/.test(await err(dlink(B, 'db2', '9101'))), 'nor someone else\'s sale into their own');
+const dsa = (await as(A, 'select public.sync_status() s')).rows[0].s;
+const dsb = (await as(B, 'select public.sync_status() s')).rows[0].s;
+ok(/\|2$/.test(dsa.deposits) && /\|2$/.test(dsa.depositSales) && /\|1$/.test(dsb.deposits) && dsb.depositSales === '|0',
+  'sync status counts only your own deposits and their sales', { ergi: [dsa.deposits, dsa.depositSales], aldo: [dsb.deposits, dsb.depositSales] });
+await as(A, `delete from public.sales where sale_id = '9102'`);
+ok((await as(A, `select count(*)::int n from public.deposit_sales where deposit_id = 'd1'`)).rows[0].n === 1, 'a deleted sale leaves the deposit, with the rest of its sales');
+await as(A, `delete from public.deposits where id = 'd1'`);
+ok((await as(A, `select count(*)::int n from public.deposit_sales`)).rows[0].n === 0 && (await as(A, `select count(*)::int n from public.sales where sale_id = '9101'`)).rows[0].n === 1,
+  'deleting a deposit deletes what it paid, never the sales');
+
+await db.query(`insert into public.fx_rates (day, lek_per, source) values ('2020-01-02', '{"EUR": 123}', 'test-old')`);
+await db.query('select public.cleanup_old()');
+ok((await db.query(`select count(*)::int n from public.fx_rates where day = '2020-01-02'`)).rows[0].n === 1, 'cleanup keeps old exchange rates: any day may need its rate');
+await db.query(`delete from public.fx_rates where source = 'test-old'`);
+await db.query(`delete from public.sales where sale_id in ('9101', '9103', '9201')`);
+await db.query(`delete from public.deposits where id in ('d2', 'db2')`);
+await db.query(`delete from public.buy_accounts where id = 'accm'`);
+
 console.log('\n== price list: shared by the team');
 await as(A, `insert into public.sector_prices (event_key, sector_id, amount, currency) values ('ebileta:2153', '1637', 4000, 'ALL')`);
 ok(Number((await as(B, `select amount from public.sector_prices where sector_id = '1637'`)).rows[0].amount) === 4000, 'a teammate reads a price someone typed');

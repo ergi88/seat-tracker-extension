@@ -1,9 +1,10 @@
 /* ------------------------------------------------------------------
  * Seat Tracker - buy price, viagogo payout and profit, in lek
  *
- * Lek (ALL) is the base currency: every amount is converted to lek at the
- * rate of the day it was read. Pure functions, shared by the service worker
- * (which computes) and the screens (which format).
+ * Lek (ALL) is the base currency. What a lot cost and what a payout brought
+ * are kept in lek as they really were; everything else converts at the rate
+ * of its day, and what is not settled yet at today's (live). Pure functions,
+ * shared by the service worker (which computes) and the screens (which format).
  *
  * win rate = what viagogo pays you ÷ what the tickets cost, shown as (x1.6);
  * under x1 is a loss.
@@ -77,8 +78,10 @@
 
   /* fxByDay: { '2026-09-17': { USD: 83.36, EUR: 97.5, RSD: 0.833 } } (lek per unit).
    * The rates of the day `at` was read (else the closest earlier day, else the
-   * oldest known), with the team's manual rates on top. */
-  function pickRates(fxByDay, override, at) {
+   * oldest known). The team's manual rates go on top for today only (`now`,
+   * else the clock): they stand for the live rate, never for a day gone by,
+   * which keeps the rate saved for it. */
+  function pickRates(fxByDay, override, at, now) {
     const days = Object.keys(fxByDay || {}).sort();
     const want = dayOf(at);
     let day = null;
@@ -86,8 +89,10 @@
     if (!day && days.length) day = days[0];
     const rates = Object.assign({}, day ? fxByDay[day] : {});
     const manual = [];
-    for (const [k, v] of Object.entries(override || {})) {
-      if (Number(v) > 0) { rates[k] = Number(v); manual.push(k); }
+    if (want >= dayOf(now)) {
+      for (const [k, v] of Object.entries(override || {})) {
+        if (Number(v) > 0) { rates[k] = Number(v); manual.push(k); }
+      }
     }
     return { rates, day, manual };
   }
@@ -96,6 +101,44 @@
     if (!currency || currency === BASE) return currency === BASE ? 1 : null;
     const r = Number((rates || {})[currency]);
     return r > 0 ? r : null;
+  }
+
+  /* ---------------- money kept in lek -------------------------------
+   * Money is worth lek at three moments: what the bank charged when you
+   * bought (a lot's Spent, kept), today's rate for what is not settled yet
+   * (live), and what reached the bank for a payout (a deposit, kept). The
+   * first and last are typed as they really were; until they are, they are
+   * filled at the rate of their day. */
+
+  /* an amount in lek at the rate of the day `at`, as a lot's Spent or a
+   * payout is filled before you type it: null with no price or no rate */
+  function lekAt(amount, currency, fxByDay, override, at, now) {
+    const n = Number(amount);
+    if (!(n > 0)) return null;
+    const r = rateOf(pickRates(fxByDay, override, at, now).rates, currency || BASE);
+    return r ? Math.round(n * r * 100) / 100 : null;
+  }
+
+  /* A lek total shared out in proportion to weights (each ticket's price, each
+   * sale's payout). A weight not above 0 counts as the others' average (1 when
+   * none has one). -> [lek], adding up to the total */
+  function splitLek(total, weights) {
+    const t = Number(total);
+    const w0 = (weights || []).map(Number);
+    if (!w0.length || !Number.isFinite(t)) return w0.map(() => null);
+    const good = w0.filter(w => w > 0);
+    const fill = good.length ? good.reduce((a, b) => a + b, 0) / good.length : 1;
+    const w = w0.map(x => (x > 0 ? x : fill));
+    const sum = w.reduce((a, b) => a + b, 0);
+    return w.map(x => (t * x) / sum);
+  }
+
+  /* the rate an amount was turned into lek at: "92.86 L per €" ('' for lek) */
+  function rateText(amount, lek, currency) {
+    const a = Number(amount), l = Number(lek);
+    if (!(a > 0) || !(l > 0) || !currency || currency === BASE) return '';
+    const r = l / a;
+    return `${r >= 10 ? r.toFixed(2) : r.toFixed(4)} L per ${SIGNS[currency] || currency}`;
   }
 
   /* ---------------- buy price --------------------------------------- */
@@ -265,7 +308,7 @@
 
   SK.profit = {
     BASE, CURRENCIES, currencyOf, parseNumber, parseMoney, priceRange,
-    dayOf, pickRates, rateOf, buyPriceOf, profitOf, atPrice, keepRatio, quote, WIN_TARGETS, breakEvenAsk, askFor,
+    dayOf, pickRates, rateOf, lekAt, splitLek, rateText, buyPriceOf, profitOf, atPrice, keepRatio, quote, WIN_TARGETS, breakEvenAsk, askFor,
     winRateText, formatLek, formatMoney
   };
 
